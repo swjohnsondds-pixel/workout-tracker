@@ -1,4 +1,4 @@
-const CACHE_NAME = "lift-tracker-v3";
+const CACHE_NAME = "lift-tracker-v4";
 const ASSETS = [
   "./",
   "./index.html",
@@ -15,6 +15,7 @@ const ASSETS = [
   "./js/modal.js",
   "./js/screens/dashboard.js",
   "./js/screens/programSetup.js",
+  "./js/screens/reviewExercises.js",
   "./js/screens/workoutSession.js",
   "./js/screens/sessionSummary.js",
   "./js/screens/history.js",

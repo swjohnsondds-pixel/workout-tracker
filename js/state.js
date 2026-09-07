@@ -1,4 +1,4 @@
-import { DAY_TEMPLATES, EXERCISES } from "./exercises.js";
+import { DEFAULT_DAY_TEMPLATES, EXERCISES } from "./exercises.js";
 import {
   isDeloadWeek,
   extractPerformance,
@@ -24,7 +24,11 @@ export function getData() {
 }
 
 function findDayTemplate(dayTemplateId) {
-  return DAY_TEMPLATES.find((t) => t.id === dayTemplateId);
+  return data.dayTemplates.find((t) => t.id === dayTemplateId);
+}
+
+export function getDayTemplates() {
+  return data.dayTemplates;
 }
 
 function findSlot(dayTemplate, exerciseId) {
@@ -35,13 +39,18 @@ function findSlot(dayTemplate, exerciseId) {
   return null;
 }
 
-export function createProgram(totalWeeks, deloadEveryNWeeks = 4, units = "lb") {
+export function createProgram(totalWeeks, deloadEveryNWeeks = 4, units = "lb", dayTemplates = DEFAULT_DAY_TEMPLATES) {
+  // Deep-clone so this program owns its own copy — later edits to the
+  // default templates (or to another program's customized copy) can never
+  // leak into an already-created program.
+  const ownedTemplates = JSON.parse(JSON.stringify(dayTemplates));
+
   const weeks = [];
   for (let w = 1; w <= totalWeeks; w++) {
     weeks.push({
       weekNumber: w,
       isDeload: isDeloadWeek(w, deloadEveryNWeeks),
-      days: DAY_TEMPLATES.map((t) => ({
+      days: ownedTemplates.map((t) => ({
         dayTemplateId: t.id,
         status: "pending", // pending | in_progress | completed
         completedAt: null,
@@ -59,6 +68,7 @@ export function createProgram(totalWeeks, deloadEveryNWeeks = 4, units = "lb") {
       units,
       status: "active",
     },
+    dayTemplates: ownedTemplates,
     weeks,
     progressionCache: {}, // exerciseId -> { weight, targetReps }
   };

@@ -1,5 +1,5 @@
 import * as State from "../state.js";
-import { DAY_TEMPLATES, EXERCISES } from "../exercises.js";
+import { EXERCISES } from "../exercises.js";
 import { calculateWarmups } from "../warmups.js";
 import { fetchHowTo } from "../howto.js";
 import { openModal } from "../modal.js";
@@ -200,7 +200,7 @@ export function render(container, { navigate, weekNumber, dayTemplateId }) {
   clearRestTimer();
 
   const day = State.startDay(weekNumber, dayTemplateId);
-  const template = DAY_TEMPLATES.find((t) => t.id === dayTemplateId);
+  const template = State.getDayTemplates().find((t) => t.id === dayTemplateId);
   const week = State.getWeek(weekNumber);
 
   const supersetsHTML = template.supersets

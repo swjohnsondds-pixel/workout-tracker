@@ -1,6 +1,7 @@
 import * as State from "./state.js";
 import * as Dashboard from "./screens/dashboard.js";
 import * as ProgramSetup from "./screens/programSetup.js";
+import * as ReviewExercises from "./screens/reviewExercises.js";
 import * as WorkoutSession from "./screens/workoutSession.js";
 import * as SessionSummary from "./screens/sessionSummary.js";
 import * as History from "./screens/history.js";
@@ -57,11 +58,14 @@ function render() {
   app.appendChild(screenEl);
 
   const hasProgram = State.hasActiveProgram();
+  const inSetupFlow = route === "setup" || route === "review";
 
-  if (!hasProgram && route !== "setup") {
+  if (!hasProgram && !inSetupFlow) {
     ProgramSetup.render(screenEl, { navigate });
   } else if (route === "setup") {
     ProgramSetup.render(screenEl, { navigate });
+  } else if (route === "review") {
+    ReviewExercises.render(screenEl, { navigate, weeks: Number(params[0]) });
   } else if (route === "workout") {
     WorkoutSession.render(screenEl, { navigate, weekNumber: Number(params[0]), dayTemplateId: params[1] });
   } else if (route === "summary") {
@@ -74,7 +78,7 @@ function render() {
     Dashboard.render(screenEl, { navigate });
   }
 
-  if (TAB_ROUTES.includes(route) || (!hasProgram && route !== "setup")) {
+  if (TAB_ROUTES.includes(route) || (!hasProgram && !inSetupFlow)) {
     app.appendChild(renderTabBar(hasProgram ? route : "dashboard"));
   }
 }

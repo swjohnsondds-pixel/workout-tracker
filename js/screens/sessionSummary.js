@@ -1,9 +1,9 @@
 import * as State from "../state.js";
-import { DAY_TEMPLATES, EXERCISES } from "../exercises.js";
+import { EXERCISES } from "../exercises.js";
 
 export function render(container, { navigate, weekNumber, dayTemplateId }) {
   const day = State.getDay(weekNumber, dayTemplateId);
-  const template = DAY_TEMPLATES.find((t) => t.id === dayTemplateId);
+  const template = State.getDayTemplates().find((t) => t.id === dayTemplateId);
   const data = State.getData();
 
   if (!day || day.status !== "completed") {

@@ -27,7 +27,7 @@ export function render(container, { navigate }) {
       <div class="chip-row" id="chipRow">
         ${PRESETS.map((p) => `<button type="button" class="week-chip ${p === weeks ? "selected" : ""}" data-weeks="${p}">${p} wk</button>`).join("")}
       </div>
-      <button class="btn" id="createProgram">Create Program</button>
+      <button class="btn" id="createProgram">Review Exercises</button>
       ${hasProgram ? '<p class="subtle" style="margin-top:12px;text-align:center;">Starting a new program replaces what\'s on your dashboard. Past history stays saved.</p>' : ""}
     </div>
   `;
@@ -57,7 +57,6 @@ export function render(container, { navigate }) {
     if (hasProgram && !confirm("Start a new program? Your current program's progress display will be replaced.")) {
       return;
     }
-    State.createProgram(weeks, 4, "lb");
-    navigate("dashboard");
+    navigate(`review/${weeks}`);
   });
 }

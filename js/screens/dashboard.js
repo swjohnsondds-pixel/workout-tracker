@@ -1,8 +1,7 @@
 import * as State from "../state.js";
-import { DAY_TEMPLATES } from "../exercises.js";
 
 function dayLabel(dayTemplateId) {
-  const t = DAY_TEMPLATES.find((d) => d.id === dayTemplateId);
+  const t = State.getDayTemplates().find((d) => d.id === dayTemplateId);
   return t ? t.label : dayTemplateId;
 }
 
