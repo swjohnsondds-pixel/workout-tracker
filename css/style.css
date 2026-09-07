@@ -1320,6 +1320,22 @@ select#historyExercisePicker:focus {
   line-height: 1.6;
   white-space: pre-line;
 }
+.howto-tab[hidden] { display: none; }
+.youtube-link {
+  display: block;
+  text-align: center;
+  background: var(--surface-2);
+  border: 1.5px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  padding: 13px;
+  margin-top: 4px;
+  margin-bottom: 14px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--accent-strong);
+  text-decoration: none;
+}
+.youtube-link:active { background: var(--surface-3); }
 .modal-loading {
   color: var(--text-tertiary);
   font-size: 0.88rem;

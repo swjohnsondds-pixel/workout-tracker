@@ -148,24 +148,68 @@ function rirRowHTML(log, exId, exName) {
   return `<div class="rir-row"><label>${exName} — RIR</label><div class="rir-pills">${pills}</div></div>`;
 }
 
+function youtubeSearchURL(name) {
+  return `https://www.youtube.com/results?search_query=${encodeURIComponent(name + " exercise proper form tutorial")}`;
+}
+
+function youtubeLinkHTML(exerciseDef) {
+  return `
+    <a class="youtube-link" href="${youtubeSearchURL(exerciseDef.name)}" target="_blank" rel="noopener">
+      ▶ Search YouTube for "${exerciseDef.name}"
+    </a>
+  `;
+}
+
 async function openHowTo(exerciseDef) {
   const body = openModal(`
     <h2>${exerciseDef.name}</h2>
-    <div class="modal-cue">${exerciseDef.cue}</div>
-    <div class="modal-media-slot"><div class="modal-loading"><span class="spinner"></span>Loading demonstration…</div></div>
+    <div class="view-toggle">
+      <button type="button" data-howto-tab="video" class="active">Watch Video</button>
+      <button type="button" data-howto-tab="diagram">See Diagram</button>
+    </div>
+    <div class="howto-tab" data-tab-panel="video">
+      <div class="modal-loading"><span class="spinner"></span>Looking for a demonstration…</div>
+    </div>
+    <div class="howto-tab" data-tab-panel="diagram" hidden>
+      <div class="modal-loading"><span class="spinner"></span>Looking for a diagram…</div>
+    </div>
   `);
+
+  body.querySelectorAll("[data-howto-tab]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      body.querySelectorAll("[data-howto-tab]").forEach((b) => b.classList.toggle("active", b === btn));
+      body.querySelectorAll("[data-tab-panel]").forEach((p) => {
+        p.hidden = p.dataset.tabPanel !== btn.dataset.howtoTab;
+      });
+    });
+  });
+
   const howto = await fetchHowTo(exerciseDef.wgerId);
-  const slot = body.isConnected ? body.querySelector(".modal-media-slot") : null;
-  if (!slot) return;
-  if (!howto || (!howto.video && !howto.image && !howto.description)) {
-    slot.remove();
-    return;
-  }
-  let mediaHTML = "";
-  if (howto.video) mediaHTML = `<video src="${howto.video}" controls playsinline muted></video>`;
-  else if (howto.image) mediaHTML = `<img src="${howto.image}" alt="${exerciseDef.name} demonstration" />`;
-  const descHTML = howto.description ? `<div class="modal-description">${howto.description}</div>` : "";
-  slot.innerHTML = mediaHTML + descHTML;
+  if (!body.isConnected) return; // modal closed (or replaced) while fetching
+
+  const videoPanel = body.querySelector('[data-tab-panel="video"]');
+  const diagramPanel = body.querySelector('[data-tab-panel="diagram"]');
+
+  const videoHTML = howto && howto.video
+    ? `<video src="${howto.video}" controls playsinline muted></video><p class="subtle">Demonstration from our exercise database.</p>${youtubeLinkHTML(exerciseDef)}`
+    : `<p class="subtle" style="margin-bottom:12px;">No demonstration video in our database for this exercise yet.</p>${youtubeLinkHTML(exerciseDef)}`;
+  videoPanel.innerHTML = videoHTML;
+
+  const chips = (list) => list.map((m) => `<span class="chip">${m}</span>`).join("");
+  const imageHTML = howto && howto.image
+    ? `<img src="${howto.image}" alt="${exerciseDef.name} diagram" />`
+    : `<p class="subtle" style="margin-bottom:12px;">No diagram available from our database for this exercise.</p>`;
+  const muscleHTML = `
+    <div class="muscle-group"><span class="muscle-label">Primary</span>${chips(exerciseDef.primary)}</div>
+    ${exerciseDef.secondary.length ? `<div class="muscle-group"><span class="muscle-label">Secondary</span>${chips(exerciseDef.secondary)}</div>` : ""}
+  `;
+  const descHTML = howto && howto.description ? `<div class="modal-description">${howto.description}</div>` : "";
+  diagramPanel.innerHTML = `
+    ${imageHTML}
+    <div class="muscle-panel" style="margin-bottom:14px;">${muscleHTML}</div>
+    <div class="modal-cue">${exerciseDef.cue}</div>
+    ${descHTML}
+  `;
 }
 
 // ================= main screen =================
