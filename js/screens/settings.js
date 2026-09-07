@@ -1,5 +1,5 @@
 import * as State from "../state.js";
-import { exportDataAsFile, importDataFromFile, wipeEverything, getUserName, setUserName } from "../storage.js";
+import { exportDataAsFile, importDataFromFile, wipeEverything, getUserName, setUserName, getTheme, setTheme } from "../storage.js";
 import { EXERCISES } from "../exercises.js";
 import { isEnabled as remindersEnabled, getPermission, enableReminders, disableReminders, notificationsSupported } from "../notifications.js";
 
@@ -41,6 +41,19 @@ export function render(container, { navigate }) {
           <div class="row-text">Start a new program</div>
           <span class="row-chevron">›</span>
         </button>
+      </div>
+    </div>
+
+    <div class="settings-group">
+      <span class="eyebrow">Appearance</span>
+      <div class="card">
+        <h2 style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+          Dark Mode
+          <button type="button" class="theme-switch ${getTheme() === "dark" ? "on" : ""}" id="themeSwitch" role="switch" aria-checked="${getTheme() === "dark"}">
+            <span class="theme-switch-knob"></span>
+          </button>
+        </h2>
+        <p class="subtle" style="margin-bottom:0;">${getTheme() === "dark" ? "Full dark theme with the neon accent." : "Light theme with the same neon accent."}</p>
       </div>
     </div>
 
@@ -128,6 +141,13 @@ export function render(container, { navigate }) {
 
   container.querySelector("#nameInput").addEventListener("change", (e) => {
     setUserName(e.target.value.trim());
+  });
+
+  container.querySelector("#themeSwitch").addEventListener("click", () => {
+    const next = getTheme() === "dark" ? "light" : "dark";
+    setTheme(next);
+    document.documentElement.dataset.theme = next;
+    render(container, { navigate });
   });
 
   const notifBtn = container.querySelector("#notifToggleBtn");

@@ -11,8 +11,6 @@ const TARGET_MINUTES_MAX = 60;
 // ---- rest timer + elapsed-time clock: module-level so the router's
 // cleanup() hook can always reach them, regardless of which render() closure
 // started them. ----
-const REST_RING_R = 22;
-const REST_CIRCUMFERENCE = 2 * Math.PI * REST_RING_R;
 let restTimer = { intervalId: null, el: null };
 let elapsedIntervalId = null;
 
@@ -73,52 +71,81 @@ export function cleanup() {
   clearElapsedTimer();
 }
 
-function startRestTimer(seconds, label) {
+function fmtClock(totalSeconds) {
+  const s = Math.max(0, totalSeconds);
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return `${m}:${String(r).padStart(2, "0")}`;
+}
+
+// Full-screen "focus" takeover shown between sets: moody equipment photo
+// backdrop, a big countdown, TIME/target-muscle stat pills flanking a
+// pause-styled skip button, and a swipe-up hint into the exercise how-to —
+// the same skip/beep/vibrate behavior as before, just restyled.
+function startRestTimer(seconds, label, unit) {
   clearRestTimer();
   let remaining = seconds;
+  let paused = false;
+
+  const firstDef = unit ? EXERCISES[unit.exerciseIds[0]] : null;
+  const photo = firstDef ? equipmentPhoto(firstDef.equipment) : "images/workout-moody.jpg";
+  const targetMuscles = firstDef ? firstDef.primary.slice(0, 2).join(" / ") : "—";
 
   const el = document.createElement("div");
   el.className = "rest-timer";
+  el.style.backgroundImage = `linear-gradient(180deg, rgba(20,20,22,0.35) 0%, rgba(20,20,22,0.55) 55%, rgba(20,20,22,0.97) 100%), url('${photo}')`;
   el.innerHTML = `
-    <div class="ring-wrap">
-      <svg width="52" height="52" viewBox="0 0 52 52">
-        <circle class="ring-bg" cx="26" cy="26" r="${REST_RING_R}"></circle>
-        <circle class="ring-progress" cx="26" cy="26" r="${REST_RING_R}" stroke-dasharray="${REST_CIRCUMFERENCE}" stroke-dashoffset="0"></circle>
-      </svg>
-      <div class="ring-time"></div>
+    <div class="rest-timer-top">
+      <span class="rest-timer-title">Rest</span>
     </div>
-    <div class="rest-label">Rest<strong>${label}</strong></div>
-    <button type="button" class="skip-btn">Skip</button>
+    <div class="rest-timer-clock">${fmtClock(remaining)}</div>
+    <div class="rest-timer-sub">${label}</div>
+    <div class="rest-timer-controls">
+      <div class="rest-stat-pill">
+        <span class="rest-stat-label">Time</span>
+        <span class="rest-stat-value rest-stat-time">${fmtClock(remaining)}</span>
+      </div>
+      <button type="button" class="rest-pause-btn" aria-label="Skip rest">
+        <span class="rest-pause-icon">⏭</span>
+      </button>
+      <div class="rest-stat-pill">
+        <span class="rest-stat-label">Target</span>
+        <span class="rest-stat-value">${targetMuscles}</span>
+      </div>
+    </div>
+    ${firstDef ? `<button type="button" class="rest-howto-hint"><span class="chevron">︿</span>Swipe up for instruction</button>` : ""}
   `;
   document.body.appendChild(el);
+  requestAnimationFrame(() => el.classList.add("in"));
   restTimer.el = el;
 
-  const ringProgress = el.querySelector(".ring-progress");
-  const ringTime = el.querySelector(".ring-time");
+  const clockEl = el.querySelector(".rest-timer-clock");
+  const timeStatEl = el.querySelector(".rest-stat-time");
 
   function tick() {
-    const pct = Math.max(0, remaining / seconds);
-    ringProgress.style.strokeDashoffset = String(REST_CIRCUMFERENCE * (1 - pct));
     if (remaining <= 0) {
-      ringTime.textContent = "✓";
+      clockEl.textContent = "✓";
       el.classList.add("done");
       clearInterval(restTimer.intervalId);
       restTimer.intervalId = null;
       playRestDoneBeep();
       tryVibrate([200, 80, 200]);
-      setTimeout(clearRestTimer, 1800);
+      setTimeout(clearRestTimer, 1400);
     } else {
-      ringTime.textContent = String(remaining);
+      clockEl.textContent = fmtClock(remaining);
+      timeStatEl.textContent = fmtClock(remaining);
     }
   }
 
   tick();
   restTimer.intervalId = setInterval(() => {
-    remaining -= 1;
+    if (!paused) remaining -= 1;
     tick();
   }, 1000);
 
-  el.querySelector(".skip-btn").addEventListener("click", clearRestTimer);
+  el.querySelector(".rest-pause-btn").addEventListener("click", clearRestTimer);
+  const hintBtn = el.querySelector(".rest-howto-hint");
+  if (hintBtn) hintBtn.addEventListener("click", () => openHowTo(firstDef));
 }
 
 // ---- pure markup helpers (no closure over session state) ----
@@ -754,7 +781,7 @@ export function render(container, { navigate, weekNumber, dayTemplateId }) {
         } else {
           const anyCompound = unit.exerciseIds.some((id) => EXERCISES[id].isCompound);
           const label = unit.exerciseIds.map((id) => EXERCISES[id].name).join(" + ");
-          startRestTimer(anyCompound ? 90 : 60, label);
+          startRestTimer(anyCompound ? 90 : 60, label, unit);
 
           if (isUnitComplete(unit) && currentIndex < units.length - 1) {
             setTimeout(() => goToUnit(currentIndex + 1), 550);

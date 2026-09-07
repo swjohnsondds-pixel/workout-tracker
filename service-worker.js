@@ -1,9 +1,10 @@
-const CACHE_NAME = "lift-tracker-v12";
+const CACHE_NAME = "lift-tracker-v13";
 const ASSETS = [
   "./",
   "./index.html",
   "./manifest.json",
   "./css/style.css",
+  "./fonts/Oswald-Bold.woff2",
   "./js/app.js",
   "./js/state.js",
   "./js/storage.js",

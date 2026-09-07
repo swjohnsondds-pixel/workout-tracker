@@ -83,6 +83,115 @@ function nextWorkoutPreviewHTML(next, weekNumber, isDeload) {
   `;
 }
 
+// ---- quick-stat row + weekly training-load chart (presentation-only
+// derivations from existing state — no new persisted fields) ----
+
+function computeSessionStreak(data) {
+  const allDays = [];
+  data.weeks.forEach((w) => w.days.forEach((d) => allDays.push(d)));
+  let streak = 0;
+  for (let i = allDays.length - 1; i >= 0; i--) {
+    const status = allDays[i].status;
+    if (status === "completed") streak++;
+    else if (status === "skipped") break;
+  }
+  return streak;
+}
+
+function computeWeekVolumeLbs(week) {
+  let total = 0;
+  week.days.forEach((day) => {
+    if (!day.exerciseLogs) return;
+    day.exerciseLogs.forEach((log) => {
+      log.workingSets.forEach((s) => {
+        if (s.done && s.weight != null && s.reps != null) total += s.weight * s.reps;
+      });
+    });
+  });
+  return Math.round(total);
+}
+
+function dashStatRowHTML(data, week, completedDaysThisWeek) {
+  const streak = computeSessionStreak(data);
+  const volume = computeWeekVolumeLbs(week);
+  return `
+    <div class="dash-stat-row">
+      <div class="dash-stat-card">
+        <div class="dash-stat-icon">🏋️</div>
+        <span class="dash-stat-num">${completedDaysThisWeek}/${week.days.length}</span>
+        <span class="dash-stat-label">This Week</span>
+      </div>
+      <div class="dash-stat-card">
+        <div class="dash-stat-icon">📊</div>
+        <span class="dash-stat-num">${volume.toLocaleString()}</span>
+        <span class="dash-stat-label">Volume (lb)</span>
+      </div>
+      <div class="dash-stat-card">
+        <div class="dash-stat-icon">🔥</div>
+        <span class="dash-stat-num">${streak}</span>
+        <span class="dash-stat-label">Streak</span>
+      </div>
+    </div>
+  `;
+}
+
+function last7DaysChartData() {
+  const sessions = State.getCompletedSessions();
+  const days = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    d.setHours(0, 0, 0, 0);
+    days.push({ date: d, key: d.toDateString(), sets: 0 });
+  }
+  sessions.forEach((s) => {
+    const d = new Date(s.completedAt);
+    d.setHours(0, 0, 0, 0);
+    const bucket = days.find((x) => x.key === d.toDateString());
+    if (!bucket) return;
+    bucket.sets += s.exerciseLogs.reduce((sum, l) => sum + l.workingSets.filter((x) => x.done).length, 0);
+  });
+  return days;
+}
+
+function weeklyLoadChartHTML() {
+  const days = last7DaysChartData();
+  const maxSets = Math.max(1, ...days.map((d) => d.sets));
+  const avg = Math.round(days.reduce((s, d) => s + d.sets, 0) / days.length);
+
+  let highlightKey = null;
+  for (let i = days.length - 1; i >= 0; i--) {
+    if (days[i].sets > 0) { highlightKey = days[i].key; break; }
+  }
+
+  const bars = days
+    .map((d) => {
+      const pct = Math.max(4, Math.round((d.sets / maxSets) * 100));
+      const label = d.date.toLocaleDateString("en-US", { weekday: "narrow" });
+      const active = d.key === highlightKey;
+      return `
+        <div class="load-bar-col ${active ? "active" : ""}" title="${d.date.toDateString()}: ${d.sets} sets">
+          <div class="load-bar" style="height:${pct}%"></div>
+          <span class="load-bar-day">${label}</span>
+        </div>
+      `;
+    })
+    .join("");
+
+  return `
+    <div class="card load-card">
+      <div class="load-card-head">
+        <span class="eyebrow">Training Load</span>
+        <div class="load-card-avg">
+          <span class="avg-label">7-Day Avg</span>
+          <span class="avg-num">${avg} sets</span>
+        </div>
+      </div>
+      <div class="load-bars">${bars}</div>
+    </div>
+  `;
+}
+
 function sessionProgressPct(day) {
   if (day.status === "completed") return 100;
   if (!day.exerciseLogs) return 0;
@@ -205,6 +314,14 @@ export function render(container, { navigate }) {
     <div class="greeting-eyebrow">${greetingWord()}</div>
     <h1>${getUserName()}</h1>
 
+    ${dashStatRowHTML(data, week, completedDaysThisWeek)}
+    ${weeklyLoadChartHTML()}
+
+    <div class="section-header">
+      <h2 style="margin-bottom:0;">Personalized Plan</h2>
+      <button type="button" class="view-all" id="viewAllPlan">View All</button>
+    </div>
+
     <div class="dashboard-hero">
       <span class="week-pill ${week.isDeload ? "deload" : ""}">Week ${week.weekNumber} of ${program.totalWeeks}${week.isDeload ? " · Deload" : ""}</span>
       <h2>${dayLabel(next.dayTemplateId)}</h2>
@@ -234,6 +351,7 @@ export function render(container, { navigate }) {
     }
   });
   container.querySelector("#programCard").addEventListener("click", () => navigate("program"));
+  container.querySelector("#viewAllPlan").addEventListener("click", () => navigate("program"));
 
   const previewToggle = container.querySelector("#previewToggle");
   const previewPanel = container.querySelector("#previewPanel");

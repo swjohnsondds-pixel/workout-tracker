@@ -183,3 +183,14 @@ export function getLastNotifiedAt() {
 export function markNotified() {
   localStorage.setItem(LAST_NOTIFIED_KEY, new Date().toISOString());
 }
+
+const THEME_KEY = "workoutTrackerTheme";
+
+export function getTheme() {
+  const stored = localStorage.getItem(THEME_KEY);
+  return stored === "light" ? "light" : "dark";
+}
+
+export function setTheme(theme) {
+  localStorage.setItem(THEME_KEY, theme === "light" ? "light" : "dark");
+}

@@ -1,5 +1,5 @@
 import * as State from "./state.js";
-import { getUserName } from "./storage.js";
+import { getUserName, getTheme } from "./storage.js";
 import { maybeShowTrainingReminder } from "./notifications.js";
 import * as Dashboard from "./screens/dashboard.js";
 import * as ProgramSetup from "./screens/programSetup.js";
@@ -119,21 +119,39 @@ function render() {
   }, EXIT_MS);
 }
 
+// Auto-dismisses after ~1.3s either way — the pill button just lets an
+// impatient tap skip straight to the Dashboard instead of waiting it out.
 function showWelcomeSplash() {
   const el = document.createElement("div");
   el.className = "welcome-splash";
   el.innerHTML = `
+    <div class="welcome-photos">
+      <div class="welcome-photo" style="background-image:url('images/dumbbell-rack.jpg')"></div>
+      <div class="welcome-photo main" style="background-image:url('images/workout-moody.jpg')"></div>
+      <div class="welcome-photo" style="background-image:url('images/dumbbells-row.jpg')"></div>
+    </div>
     <div class="welcome-content">
-      <div class="welcome-icon">🏋️</div>
-      <div class="welcome-text">Hello, ${getUserName()}</div>
+      <div class="welcome-label">Iron &amp; Steven</div>
+      <div class="welcome-text">Build Your<br />Best Body</div>
+      <button type="button" class="welcome-cta">Hello, ${getUserName()}</button>
+      <div class="welcome-home-indicator"></div>
     </div>
   `;
   document.body.appendChild(el);
-  setTimeout(() => el.classList.add("fade-out"), 900);
-  setTimeout(() => el.remove(), 1300);
+  const dismiss = () => {
+    if (el.classList.contains("fade-out")) return;
+    el.classList.add("fade-out");
+    setTimeout(() => el.remove(), 350);
+  };
+  el.querySelector(".welcome-cta").addEventListener("click", dismiss);
+  setTimeout(dismiss, 900);
 }
 
 window.addEventListener("hashchange", render);
+
+// Applied first, before any rendering, so the correct theme is already in
+// place for the very first paint (no flash of the wrong theme).
+document.documentElement.dataset.theme = getTheme();
 
 // Module scripts execute after the document has been parsed, so the DOM is
 // already available here — no need to wait for DOMContentLoaded.

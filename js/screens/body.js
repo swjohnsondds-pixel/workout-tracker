@@ -41,19 +41,19 @@ function buildMetricChart(entries, key) {
   const linePath = coords.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
   const areaPath = `${linePath} L${coords[coords.length - 1][0].toFixed(1)},${(PAD_TOP + plotH).toFixed(1)} L${coords[0][0].toFixed(1)},${(PAD_TOP + plotH).toFixed(1)} Z`;
   const dots = coords
-    .map(([x, y], i) => `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${i === coords.length - 1 ? 5 : 3}" fill="${i === coords.length - 1 ? "#c6ff4a" : "#0a0a08"}" stroke="#c6ff4a" stroke-width="2" />`)
+    .map(([x, y], i) => `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${i === coords.length - 1 ? 5 : 3}" fill="${i === coords.length - 1 ? "#d7ff3d" : "#1c1c1e"}" stroke="#d7ff3d" stroke-width="2" />`)
     .join("");
 
   return `
     <svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" preserveAspectRatio="none" style="overflow:visible;">
       <defs>
         <linearGradient id="bodyMetricFill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#c6ff4a" stop-opacity="0.35" />
-          <stop offset="100%" stop-color="#c6ff4a" stop-opacity="0" />
+          <stop offset="0%" stop-color="#d7ff3d" stop-opacity="0.35" />
+          <stop offset="100%" stop-color="#d7ff3d" stop-opacity="0" />
         </linearGradient>
       </defs>
       <path d="${areaPath}" fill="url(#bodyMetricFill)" stroke="none" />
-      <path d="${linePath}" fill="none" stroke="#c6ff4a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+      <path d="${linePath}" fill="none" stroke="#d7ff3d" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
       ${dots}
     </svg>
   `;
