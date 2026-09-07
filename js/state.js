@@ -49,7 +49,7 @@ export function createProgram(totalWeeks, deloadEveryNWeeks = 4, units = "lb", d
   for (let w = 1; w <= totalWeeks; w++) {
     weeks.push({
       weekNumber: w,
-      isDeload: isDeloadWeek(w, deloadEveryNWeeks),
+      isDeload: isDeloadWeek(w, deloadEveryNWeeks, totalWeeks),
       days: ownedTemplates.map((t) => ({
         dayTemplateId: t.id,
         status: "pending", // pending | in_progress | completed
@@ -99,13 +99,14 @@ export function getNextWorkout() {
 
 function buildExerciseLog(exerciseId, slot, weekNumber) {
   const exerciseDef = EXERCISES[exerciseId];
-  const deload = isDeloadWeek(weekNumber, data.program.deloadEveryNWeeks);
+  const deload = isDeloadWeek(weekNumber, data.program.deloadEveryNWeeks, data.program.totalWeeks);
   const cached = data.progressionCache[exerciseId];
 
   let prescribedWeight = null;
   let targetReps = null;
   let sets = slot.sets;
   let targetRIR = slot.targetRIR;
+  let prescriptionAction = null;
 
   if (weekNumber === 1) {
     // Baseline week: no prescription, user logs whatever they do.
@@ -116,11 +117,23 @@ function buildExerciseLog(exerciseId, slot, weekNumber) {
       targetReps = d.targetReps;
       sets = d.sets;
       targetRIR = d.targetRIR;
+      prescriptionAction = d.action;
     } else {
       prescribedWeight = cached.weight;
       targetReps = cached.targetReps;
+      prescriptionAction = cached.action;
     }
   }
+
+  // Pre-fill each working set with the prescription so the session screen
+  // shows real, editable values rather than just placeholder text — you
+  // only need to touch a field if you actually did something different.
+  const workingSets = Array.from({ length: sets }, (_, i) => ({
+    setNumber: i + 1,
+    weight: prescribedWeight,
+    reps: targetReps,
+    done: false,
+  }));
 
   return {
     exerciseId,
@@ -130,8 +143,9 @@ function buildExerciseLog(exerciseId, slot, weekNumber) {
     targetRIR,
     prescribedWeight,
     targetReps,
+    prescriptionAction,
     warmupSets: [],
-    workingSets: Array.from({ length: sets }, (_, i) => ({ setNumber: i + 1, weight: null, reps: null, done: false })),
+    workingSets,
     rir: null,
   };
 }
@@ -185,7 +199,7 @@ export function logRIR(weekNumber, dayTemplateId, exerciseId, rir) {
 export function finishDay(weekNumber, dayTemplateId) {
   const day = getDay(weekNumber, dayTemplateId);
   const template = findDayTemplate(dayTemplateId);
-  const deload = isDeloadWeek(weekNumber, data.program.deloadEveryNWeeks);
+  const deload = isDeloadWeek(weekNumber, data.program.deloadEveryNWeeks, data.program.totalWeeks);
 
   day.status = "completed";
   day.completedAt = new Date().toISOString();

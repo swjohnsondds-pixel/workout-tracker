@@ -90,6 +90,19 @@ function prescriptionText(log, weekNumber) {
   return "Log what you hit.";
 }
 
+// Only flag the cases worth a decision point — plain "add a rep this week"
+// is the expected default and doesn't need its own badge every session.
+const ACTION_FLAGS = {
+  increase_weight: { label: "🔺 Weight up — reps maxed last week", cls: "flag-up" },
+  hold: { label: "⏸ Holding — RIR was low last week", cls: "flag-hold" },
+  maxed_bodyweight: { label: "⚠️ Reps maxed — consider a harder variation", cls: "flag-hold" },
+};
+
+function actionFlagHTML(log) {
+  const flag = ACTION_FLAGS[log.prescriptionAction];
+  return flag ? `<div class="action-flag ${flag.cls}">${flag.label}</div>` : "";
+}
+
 function chipsHTML(list) {
   return list.map((m) => `<span class="chip">${m}</span>`).join("");
 }
@@ -159,6 +172,7 @@ function exerciseCardHTML(log, weekNumber) {
       <button type="button" class="exercise-name-btn" data-howto>${exerciseDef.name} <span class="info-icon">ⓘ How-to</span></button>
       <div class="exercise-meta">${log.sets} sets · ${log.repMin}-${log.repMax} reps · target RIR ${log.targetRIR}</div>
       <div class="progress-note">${prescriptionText(log, weekNumber)}</div>
+      ${actionFlagHTML(log)}
       <div class="warmup-row" data-warmup-row>${warmupText(exerciseDef, log)}</div>
       ${muscleSectionHTML(exerciseDef)}
       ${setsHTML}
@@ -387,8 +401,8 @@ export function render(container, { navigate, weekNumber, dayTemplateId }) {
 
   container.querySelector("#finishBtn").addEventListener("click", () => {
     clearRestTimer();
-    const anyEmpty = day.exerciseLogs.some((l) => l.workingSets.every((s) => s.reps == null));
-    if (anyEmpty && !confirm("Some exercises have no logged sets. Finish workout anyway?")) {
+    const anyEmpty = day.exerciseLogs.some((l) => l.workingSets.every((s) => !s.done));
+    if (anyEmpty && !confirm("Some exercises have no confirmed sets. Finish workout anyway?")) {
       return;
     }
     State.finishDay(weekNumber, dayTemplateId);

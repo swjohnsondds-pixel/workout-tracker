@@ -656,6 +656,17 @@ button { font-family: inherit; cursor: pointer; }
   margin-bottom: 12px;
 }
 
+.action-flag {
+  display: inline-block;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  margin-bottom: 12px;
+}
+.action-flag.flag-up { background: var(--accent-soft); color: var(--accent-strong); }
+.action-flag.flag-hold { background: var(--warning-soft); color: var(--warning); }
+
 /* ---- set rows ---- */
 .set-row-wrapper {
   position: relative;
