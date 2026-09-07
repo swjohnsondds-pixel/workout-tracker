@@ -1,4 +1,4 @@
-const CACHE_NAME = "lift-tracker-v6";
+const CACHE_NAME = "lift-tracker-v7";
 const ASSETS = [
   "./",
   "./index.html",
@@ -20,6 +20,7 @@ const ASSETS = [
   "./js/screens/sessionSummary.js",
   "./js/screens/history.js",
   "./js/screens/settings.js",
+  "./js/screens/program.js",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
   "./icons/icon-180.png",
@@ -27,7 +28,20 @@ const ASSETS = [
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)).then(() => self.skipWaiting())
+    caches
+      .open(CACHE_NAME)
+      .then((cache) =>
+        // Cache what we can rather than all-or-nothing: cache.addAll() fails
+        // the *entire* install if even one URL 404s, silently leaving the app
+        // with zero offline support. A single bad path here should never be
+        // able to take down offline access to everything else.
+        Promise.allSettled(
+          ASSETS.map((url) =>
+            cache.add(url).catch((err) => console.warn("[sw] failed to cache", url, err))
+          )
+        )
+      )
+      .then(() => self.skipWaiting())
   );
 });
 
@@ -42,6 +56,14 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+
+  // Only handle same-origin app-shell requests with the cache-first
+  // strategy. Cross-origin calls (the wger.de how-to API) are left to the
+  // network as normal — howto.js already catches failures there and falls
+  // back to the local cue, and caching third-party API responses here would
+  // just be unreliable dead weight.
+  if (new URL(event.request.url).origin !== self.location.origin) return;
+
   event.respondWith(
     caches.match(event.request).then((cached) => {
       const network = fetch(event.request)

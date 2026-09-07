@@ -18,6 +18,11 @@ export function render(container, { navigate }) {
             ${program ? `<div class="row-sub">Deload every ${program.deloadEveryNWeeks} weeks · units: ${program.units}</div>` : ""}
           </div>
         </div>
+        <button type="button" class="settings-row" id="viewProgramBtn">
+          <div class="row-icon">📋</div>
+          <div class="row-text">View &amp; adjust program<div class="row-sub">Weeks remaining, upcoming prescriptions</div></div>
+          <span class="row-chevron">›</span>
+        </button>
         <button type="button" class="settings-row" id="newProgramBtn">
           <div class="row-icon">✨</div>
           <div class="row-text">Start a new program</div>
@@ -56,6 +61,9 @@ export function render(container, { navigate }) {
   `;
 
   container.querySelector("#newProgramBtn").addEventListener("click", () => navigate("setup"));
+  if (program) {
+    container.querySelector("#viewProgramBtn").addEventListener("click", () => navigate("program"));
+  }
 
   container.querySelector("#exportBtn").addEventListener("click", () => {
     exportDataAsFile();

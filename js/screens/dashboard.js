@@ -71,14 +71,15 @@ export function render(container, { navigate }) {
       <p class="subtle" style="margin-top:14px;margin-bottom:0;">${completedDaysThisWeek} of ${week.days.length} sessions completed</p>
     </div>
 
-    <div class="card">
-      <h2>Program Progress</h2>
+    <button type="button" class="card" id="programCard" style="width:100%;text-align:left;border:1px solid var(--border);">
+      <h2>Program Progress <span class="row-chevron" style="float:right;">›</span></h2>
       <div class="progress-bar-track"><div class="progress-bar-fill" style="width:${programPct}%"></div></div>
       <p class="subtle" style="margin-top:10px;margin-bottom:0;">${totalDaysDone} of ${totalDays} sessions · ${programPct}% through week ${program.totalWeeks}</p>
-    </div>
+    </button>
   `;
 
   container.querySelector("#startWorkout").addEventListener("click", () => {
     navigate(`workout/${next.weekNumber}/${next.dayTemplateId}`);
   });
+  container.querySelector("#programCard").addEventListener("click", () => navigate("program"));
 }

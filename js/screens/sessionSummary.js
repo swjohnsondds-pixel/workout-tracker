@@ -30,6 +30,7 @@ export function render(container, { navigate, weekNumber, dayTemplateId }) {
     hold: "Holding — RIR was low",
     maxed_bodyweight: "Reps maxed — try a harder variation",
     deload: "Deload week",
+    manual_override: "✏️ Manually adjusted",
   };
 
   const rowsHTML = day.exerciseLogs

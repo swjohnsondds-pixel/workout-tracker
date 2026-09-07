@@ -6,6 +6,7 @@ import * as WorkoutSession from "./screens/workoutSession.js";
 import * as SessionSummary from "./screens/sessionSummary.js";
 import * as History from "./screens/history.js";
 import * as Settings from "./screens/settings.js";
+import * as Program from "./screens/program.js";
 
 const app = document.getElementById("app");
 
@@ -74,6 +75,8 @@ function render() {
     History.render(screenEl, { navigate });
   } else if (route === "settings") {
     Settings.render(screenEl, { navigate });
+  } else if (route === "program") {
+    Program.render(screenEl, { navigate });
   } else {
     Dashboard.render(screenEl, { navigate });
   }

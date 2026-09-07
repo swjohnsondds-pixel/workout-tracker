@@ -95,6 +95,7 @@ const ACTION_FLAGS = {
   increase_weight: { label: "🔺 Weight up — reps maxed last week", cls: "flag-up" },
   hold: { label: "⏸ Holding — RIR was low last week", cls: "flag-hold" },
   maxed_bodyweight: { label: "⚠️ Reps maxed — consider a harder variation", cls: "flag-hold" },
+  manual_override: { label: "✏️ Manually adjusted in My Program", cls: "flag-up" },
 };
 
 function actionFlagHTML(log) {
@@ -194,7 +195,7 @@ export function render(container, { navigate, weekNumber, dayTemplateId }) {
     <div class="session-header">
       <div class="top-bar">
         <button class="back" id="backBtn">‹ Back</button>
-        <button class="btn ghost" id="finishLink" style="width:auto;">Finish</button>
+        <button class="btn ghost" id="finishLink" style="width:auto;">Finish Early</button>
       </div>
       <h1>${template.label}</h1>
       <p class="subtle">Week ${weekNumber} of ${program.totalWeeks}${week.isDeload ? " · Deload week" : ""}</p>
@@ -427,18 +428,24 @@ export function render(container, { navigate, weekNumber, dayTemplateId }) {
 
       const roundComplete = unit.exerciseIds.every((id) => findLog(id).workingSets[r].done);
       if (roundComplete) {
-        const anyCompound = unit.exerciseIds.some((id) => EXERCISES[id].isCompound);
-        const label = unit.exerciseIds.map((id) => EXERCISES[id].name).join(" + ");
-        startRestTimer(anyCompound ? 90 : 60, label);
-
         const roundBlock = slot.querySelector(`.round-block[data-round-block="${r}"]`);
         setTimeout(() => roundBlock.classList.add("collapsing"), 300);
 
-        if (isUnitComplete(unit)) {
-          setTimeout(() => {
-            if (currentIndex < units.length - 1) goToUnit(currentIndex + 1);
-            else updateNavButtons();
-          }, 550);
+        const wholeDayComplete = units.every(isUnitComplete);
+        if (wholeDayComplete) {
+          // The very last set of the whole session — nothing left to rest
+          // for, so skip the rest timer and finish automatically. This is
+          // the "no manual save step" path: checking off the last set is
+          // enough, no separate Finish tap required.
+          setTimeout(() => attemptFinish(), 700);
+        } else {
+          const anyCompound = unit.exerciseIds.some((id) => EXERCISES[id].isCompound);
+          const label = unit.exerciseIds.map((id) => EXERCISES[id].name).join(" + ");
+          startRestTimer(anyCompound ? 90 : 60, label);
+
+          if (isUnitComplete(unit) && currentIndex < units.length - 1) {
+            setTimeout(() => goToUnit(currentIndex + 1), 550);
+          }
         }
       }
       updateHeaderProgress();
