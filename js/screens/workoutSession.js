@@ -406,7 +406,13 @@ export function render(container, { navigate, weekNumber, dayTemplateId }) {
          </div>`
       : `<button type="button" class="exercise-name-btn" data-howto="${ids[0]}">${defs[0].name} <span class="info-icon">ⓘ How-to</span></button>`;
 
-    const metaLine = `${logs[0].sets} ${isPair ? "rounds" : "sets"} · ${logs[0].repMin}-${logs[0].repMax} reps · target RIR ${logs[0].targetRIR}`;
+    const metaLine = `
+      <div class="chip-pill-row">
+        <span class="chip-pill">📊 ${logs[0].sets} ${isPair ? "rounds" : "sets"}</span>
+        <span class="chip-pill">🔁 ${logs[0].repMin}-${logs[0].repMax} reps</span>
+        <span class="chip-pill">🎯 RIR ${logs[0].targetRIR}</span>
+      </div>
+    `;
     const flagsHTML = logs.map(actionFlagHTML).join("");
     const painHTML = ids.map(painSectionHTML).join("");
     const muscleHTML = ids.map((id, i) => muscleSectionHTML(defs[i], id, isPair)).join("");
@@ -415,7 +421,7 @@ export function render(container, { navigate, weekNumber, dayTemplateId }) {
     const roundsHTML = Array.from({ length: roundsCount }, (_, r) => roundBlockHTML(unit, r, isPair)).join("");
     const rirHTML = ids.map((id, i) => rirRowHTML(logs[i], id, defs[i].name)).join("");
 
-    return `${headerHTML}<div class="exercise-meta">${metaLine}</div>${flagsHTML}${painHTML}${muscleHTML}${roundsHTML}${rirHTML}`;
+    return `${headerHTML}${metaLine}${flagsHTML}${painHTML}${muscleHTML}${roundsHTML}${rirHTML}`;
   }
 
   function roundBlockHTML(unit, r, isPair) {

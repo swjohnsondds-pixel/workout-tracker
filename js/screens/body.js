@@ -26,12 +26,12 @@ function buildWeightChart(entries) {
     <svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" preserveAspectRatio="none" style="overflow:visible;">
       <defs>
         <linearGradient id="bodyAreaFill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#3d7bff" stop-opacity="0.35" />
-          <stop offset="100%" stop-color="#3d7bff" stop-opacity="0" />
+          <stop offset="0%" stop-color="#c6ff4a" stop-opacity="0.35" />
+          <stop offset="100%" stop-color="#c6ff4a" stop-opacity="0" />
         </linearGradient>
       </defs>
       <path d="${areaPath}" fill="url(#bodyAreaFill)" stroke="none" />
-      <path d="${linePath}" fill="none" stroke="#3d7bff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+      <path d="${linePath}" fill="none" stroke="#c6ff4a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
       ${dots}
     </svg>
   `;

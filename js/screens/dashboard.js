@@ -1,5 +1,5 @@
 import * as State from "../state.js";
-import { getLastExportAt, getLastBackupNudgeAt, markBackupNudged, exportDataAsFile } from "../storage.js";
+import { getUserName, getLastExportAt, getLastBackupNudgeAt, markBackupNudged, exportDataAsFile } from "../storage.js";
 import { openModal, closeModal } from "../modal.js";
 
 const BACKUP_REMINDER_DAYS = 14;
@@ -10,14 +10,81 @@ function dayLabel(dayTemplateId) {
   return t ? t.label : dayTemplateId;
 }
 
-function shortLabel(dayTemplateId) {
-  return { upperA: "Upper A", lowerA: "Lower A", upperB: "Upper B", lowerB: "Lower B" }[dayTemplateId] || dayTemplateId;
+function dayIcon(dayTemplateId) {
+  return dayTemplateId.startsWith("upper") ? "💪" : "🦵";
 }
 
 function heroNote(weekNumber, isDeload) {
   if (weekNumber === 1) return "Baseline week — log what you actually hit today. No prescribed weights yet.";
   if (isDeload) return "Deload week — lighter weight, fewer sets, easier effort. Let things recover.";
   return "Weight and reps below are prescribed from last week's performance.";
+}
+
+function greetingWord() {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good Morning";
+  if (hour < 17) return "Good Afternoon";
+  return "Good Evening";
+}
+
+// Rough per-day plan stats (sets / avg target RIR / estimated duration) for
+// the metadata chips — derived from the day template, not from any single
+// session's actual performance.
+function computeDayStats(dayTemplateId) {
+  const template = State.getDayTemplates().find((t) => t.id === dayTemplateId);
+  let totalSets = 0;
+  let rirSum = 0;
+  let rirCount = 0;
+  template.supersets.forEach((ss) =>
+    ss.exercises.forEach((slot) => {
+      totalSets += slot.sets;
+      rirSum += slot.targetRIR;
+      rirCount++;
+    })
+  );
+  const avgRIR = rirCount ? Math.round((rirSum / rirCount) * 10) / 10 : 0;
+  const estMinutes = Math.max(20, Math.round((totalSets * 2.5) / 5) * 5);
+  return { totalSets, avgRIR, estMinutes };
+}
+
+function sessionProgressPct(day) {
+  if (day.status === "completed") return 100;
+  if (!day.exerciseLogs) return 0;
+  const totalSets = day.exerciseLogs.reduce((s, l) => s + l.workingSets.length, 0);
+  const doneSets = day.exerciseLogs.reduce((s, l) => s + l.workingSets.filter((x) => x.done).length, 0);
+  return totalSets ? Math.round((doneSets / totalSets) * 100) : 0;
+}
+
+function dayPlanCardHTML(day, next) {
+  const isCurrent = day.dayTemplateId === next.dayTemplateId && day.status !== "completed" && day.status !== "skipped";
+  const state = day.status === "completed" ? "done" : day.status === "skipped" ? "skipped" : isCurrent ? "current" : "upcoming";
+  const stats = computeDayStats(day.dayTemplateId);
+  const pct = sessionProgressPct(day);
+
+  const badgeHTML =
+    state === "done"
+      ? `<div class="day-plan-check">✓</div>`
+      : state === "skipped"
+        ? `<div class="day-plan-check skipped">–</div>`
+        : "";
+
+  const showBar = state === "done" || state === "current" || pct > 0;
+
+  return `
+    <div class="day-plan-card ${state}">
+      <div class="day-plan-icon">${dayIcon(day.dayTemplateId)}</div>
+      <div class="day-plan-info">
+        <div class="day-plan-title">${dayLabel(day.dayTemplateId)}</div>
+        <div class="chip-pill-row">
+          <span class="chip-pill">⏱ ${stats.estMinutes} min</span>
+          <span class="chip-pill">📊 ${stats.totalSets} sets</span>
+          <span class="chip-pill">🎯 RIR ${stats.avgRIR}</span>
+        </div>
+        ${showBar ? `<div class="progress-bar-track small"><div class="progress-bar-fill" style="width:${pct}%"></div></div>` : ""}
+      </div>
+      ${badgeHTML}
+    </div>
+  `;
 }
 
 function maybeShowMissedSessionPrompt(container, navigate) {
@@ -77,7 +144,8 @@ export function render(container, { navigate }) {
 
   if (program.status === "completed" || !next) {
     container.innerHTML = `
-      <h1>Lift Tracker</h1>
+      <div class="greeting-eyebrow">${greetingWord()}</div>
+      <h1>${getUserName()}</h1>
       <div class="empty-state">
         <span class="empty-icon">🏆</span>
         <h2>Program complete</h2>
@@ -95,38 +163,26 @@ export function render(container, { navigate }) {
   const totalDays = data.weeks.length * 4;
   const programPct = Math.round((totalDaysDone / totalDays) * 100);
 
-  const pipsHTML = week.days
-    .map((d) => {
-      const isToday = d.dayTemplateId === next.dayTemplateId && d.status !== "completed" && d.status !== "skipped";
-      const state = d.status === "completed" ? "done" : d.status === "skipped" ? "skipped" : isToday ? "today" : "";
-      const mark = d.status === "completed" ? "✓" : d.status === "skipped" ? "–" : "";
-      return `
-        <div class="day-pip ${state}">
-          <div class="pip-dot">${mark ? `<span style="font-size:7px;line-height:10px;color:#06231a;display:block;text-align:center;">${mark}</span>` : ""}</div>
-          <div class="pip-label">${shortLabel(d.dayTemplateId)}</div>
-        </div>
-      `;
-    })
-    .join("");
+  const dayCardsHTML = week.days.map((d) => dayPlanCardHTML(d, next)).join("");
 
   container.innerHTML = `
-    <div class="eyebrow" style="margin-bottom:6px;">Lift Tracker</div>
-    <h1>Home</h1>
+    <div class="greeting-eyebrow">${greetingWord()}</div>
+    <h1>${getUserName()}</h1>
 
     <div class="dashboard-hero">
       <span class="week-pill ${week.isDeload ? "deload" : ""}">Week ${week.weekNumber} of ${program.totalWeeks}${week.isDeload ? " · Deload" : ""}</span>
       <h2>${dayLabel(next.dayTemplateId)}</h2>
       <p class="hero-note">${heroNote(week.weekNumber, week.isDeload)}</p>
-      <button class="btn" id="startWorkout">${next.day.status === "in_progress" ? "Resume Workout" : "Start Workout"}</button>
+      <button class="btn" id="startWorkout">${next.day.status === "in_progress" ? "Resume Workout" : "Let's Workout"}</button>
     </div>
 
-    <div class="card">
-      <h2>This Week</h2>
-      <div class="week-track">${pipsHTML}</div>
-      <p class="subtle" style="margin-top:14px;margin-bottom:0;">${completedDaysThisWeek} of ${week.days.length} sessions completed</p>
+    <div class="section-header">
+      <h2 style="margin-bottom:0;">This Week's Plan</h2>
+      <span class="subtle">${completedDaysThisWeek}/${week.days.length} done</span>
     </div>
+    ${dayCardsHTML}
 
-    <button type="button" class="card" id="programCard" style="width:100%;text-align:left;border:1px solid var(--border);">
+    <button type="button" class="card" id="programCard" style="width:100%;text-align:left;border:1px solid var(--border);margin-top:4px;">
       <h2>Program Progress <span class="row-chevron" style="float:right;">›</span></h2>
       <div class="progress-bar-track"><div class="progress-bar-fill" style="width:${programPct}%"></div></div>
       <p class="subtle" style="margin-top:10px;margin-bottom:0;">${totalDaysDone} of ${totalDays} sessions · ${programPct}% through week ${program.totalWeeks}</p>

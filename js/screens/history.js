@@ -46,8 +46,8 @@ function svgLineChart(history, valueKey, { color, highlightWeek } = {}) {
       const [x, y] = p.xy;
       const isLast = p === last;
       const isHighlight = highlightWeek != null && p.weekNumber === highlightWeek;
-      const fill = isHighlight ? "#fbbf24" : isLast ? color : "#0a0c11";
-      const stroke = isHighlight ? "#0a0c11" : color;
+      const fill = isHighlight ? "#ffc23c" : isLast ? color : "#0a0a08";
+      const stroke = isHighlight ? "#0a0a08" : color;
       const r = isHighlight || isLast ? 5 : 3;
       return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r}" fill="${fill}" stroke="${stroke}" stroke-width="2" />`;
     })
@@ -167,8 +167,8 @@ function renderExerciseView(container, initialId) {
       )
       .join("");
 
-    const weightChart = svgLineChart(history, "weight", { color: "#3d7bff", highlightWeek: pr?.weekNumber });
-    const rirChart = svgLineChart(history, "rir", { color: "#fbbf24" });
+    const weightChart = svgLineChart(history, "weight", { color: "#c6ff4a", highlightWeek: pr?.weekNumber });
+    const rirChart = svgLineChart(history, "rir", { color: "#ffc23c" });
 
     body.innerHTML = `
       ${prBadgeHTML(pr)}
