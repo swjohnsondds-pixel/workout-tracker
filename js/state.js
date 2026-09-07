@@ -121,7 +121,7 @@ function buildExerciseLog(exerciseId, slot, weekNumber) {
     prescribedWeight,
     targetReps,
     warmupSets: [],
-    workingSets: Array.from({ length: sets }, (_, i) => ({ setNumber: i + 1, weight: null, reps: null })),
+    workingSets: Array.from({ length: sets }, (_, i) => ({ setNumber: i + 1, weight: null, reps: null, done: false })),
     rir: null,
   };
 }
@@ -146,7 +146,15 @@ export function startDay(weekNumber, dayTemplateId) {
 export function logWorkingSet(weekNumber, dayTemplateId, exerciseId, setIndex, weight, reps) {
   const day = getDay(weekNumber, dayTemplateId);
   const log = day.exerciseLogs.find((l) => l.exerciseId === exerciseId);
-  log.workingSets[setIndex] = { setNumber: setIndex + 1, weight, reps };
+  const done = log.workingSets[setIndex].done;
+  log.workingSets[setIndex] = { setNumber: setIndex + 1, weight, reps, done };
+  saveData(data);
+}
+
+export function markSetDone(weekNumber, dayTemplateId, exerciseId, setIndex, done) {
+  const day = getDay(weekNumber, dayTemplateId);
+  const log = day.exerciseLogs.find((l) => l.exerciseId === exerciseId);
+  log.workingSets[setIndex].done = done;
   saveData(data);
 }
 

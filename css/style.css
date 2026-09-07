@@ -118,10 +118,55 @@ p.subtle, .subtle { color: var(--text-dim); font-size: 0.9rem; }
   font-size: 1.02rem;
   margin-bottom: 2px;
 }
+.exercise-name-btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 0;
+  font-weight: 600;
+  font-size: 1.02rem;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+.exercise-name-btn .info-icon {
+  color: var(--accent);
+  font-size: 0.85em;
+  margin-left: 4px;
+}
 .exercise-meta {
   color: var(--text-dim);
   font-size: 0.85rem;
   margin-bottom: 10px;
+}
+
+.muscle-toggle {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 0.82rem;
+  padding: 4px 0 8px;
+  display: block;
+}
+.muscle-panel {
+  background: var(--surface-2);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  font-size: 0.82rem;
+}
+.muscle-group { margin-bottom: 6px; }
+.muscle-group:last-child { margin-bottom: 0; }
+.muscle-label { color: var(--text-dim); margin-right: 6px; }
+.chip {
+  display: inline-block;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 2px 9px;
+  margin: 2px 3px 2px 0;
+  font-size: 0.78rem;
 }
 
 .warmup-row {
@@ -137,13 +182,33 @@ p.subtle, .subtle { color: var(--text-dim); font-size: 0.9rem; }
   border-radius: 8px;
 }
 
+.set-row-wrapper {
+  position: relative;
+  overflow: hidden;
+}
+
 .set-row {
   display: grid;
-  grid-template-columns: 28px 1fr 1fr;
+  grid-template-columns: 28px 1fr 1fr 40px;
   gap: 8px;
   align-items: center;
   margin-bottom: 8px;
+  max-height: 60px;
+  opacity: 1;
+  transform: translateY(0);
+  transition: max-height 0.35s ease, opacity 0.3s ease, transform 0.3s ease, margin 0.35s ease;
 }
+.set-row.collapsing {
+  max-height: 0;
+  opacity: 0;
+  transform: translateY(-6px);
+  margin-bottom: 0;
+  pointer-events: none;
+}
+/* Explicit display:grid above would otherwise override the browser's
+   default [hidden]{display:none} rule (author styles beat user-agent
+   styles regardless of specificity), so hidden must be re-asserted here. */
+.set-row[hidden] { display: none; }
 .set-row .set-label { color: var(--text-dim); font-size: 0.85rem; }
 .set-row input {
   width: 100%;
@@ -156,6 +221,55 @@ p.subtle, .subtle { color: var(--text-dim); font-size: 0.9rem; }
   text-align: center;
 }
 .set-row input::placeholder { color: #5a6070; }
+
+.set-check {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-dim);
+  font-size: 1rem;
+  padding: 0;
+}
+.set-check:active { transform: scale(0.9); }
+
+.checkmark-burst {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  font-size: 1.6rem;
+  color: var(--good);
+  pointer-events: none;
+  transform: translate(0, -50%) scale(0.3);
+  opacity: 0;
+  animation: checkBurst 0.55s ease forwards;
+}
+@keyframes checkBurst {
+  0% { transform: translate(0, -50%) scale(0.3); opacity: 0; }
+  40% { transform: translate(0, -50%) scale(1.4); opacity: 1; }
+  100% { transform: translate(0, -50%) scale(1); opacity: 0; }
+}
+
+.set-done-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 4px;
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+  animation: fadeIn 0.3s ease;
+}
+.set-done-line .check-icon { color: var(--good); font-weight: 700; }
+.set-done-line[hidden] { display: none; }
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 
 .rir-row {
   display: flex;
@@ -264,4 +378,64 @@ select#historyExercisePicker {
   color: var(--text);
   font-size: 1rem;
   margin-bottom: 16px;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: flex-end;
+  z-index: 1000;
+  animation: fadeIn 0.15s ease;
+}
+.modal-sheet {
+  background: var(--surface);
+  border-top-left-radius: 20px;
+  border-top-right-radius: 20px;
+  border: 1px solid var(--border);
+  border-bottom: none;
+  width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+  padding: 18px 18px calc(24px + env(safe-area-inset-bottom));
+  position: relative;
+}
+.modal-close {
+  position: sticky;
+  float: right;
+  top: 0;
+  background: var(--surface-2);
+  border: none;
+  color: var(--text);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 0.9rem;
+}
+.modal-body h2 { margin-top: 0; padding-right: 40px; }
+.modal-body video, .modal-body img {
+  width: 100%;
+  border-radius: 12px;
+  background: #000;
+  margin-bottom: 12px;
+}
+.modal-cue {
+  background: var(--surface-2);
+  border-left: 3px solid var(--accent);
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 0.92rem;
+  margin-bottom: 12px;
+}
+.modal-description {
+  font-size: 0.88rem;
+  color: var(--text-dim);
+  line-height: 1.5;
+  white-space: pre-line;
+}
+.modal-loading {
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  padding: 10px 0;
 }
