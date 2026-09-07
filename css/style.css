@@ -1521,3 +1521,78 @@ select#historyExercisePicker:focus {
   font-weight: 700;
 }
 .joint-chip.selected { background: var(--danger); color: #fff; border-color: var(--danger); }
+
+/* ============================================================
+   WHEEL PICKER (iOS-style scroll wheel — no native element for this)
+   ============================================================ */
+.wheel-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.wheel-col { flex: 1; text-align: center; min-width: 0; }
+.wheel-col-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 8px;
+}
+.wheel-unit {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  margin-top: 6px;
+}
+
+.wheel-picker {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+.wheel-scroll {
+  height: 100%;
+  overflow-y: scroll;
+  scroll-snap-type: y mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  mask-image: linear-gradient(to bottom, transparent, black 32%, black 68%, transparent);
+  -webkit-mask-image: linear-gradient(to bottom, transparent, black 32%, black 68%, transparent);
+}
+.wheel-scroll::-webkit-scrollbar { display: none; }
+.wheel-item {
+  scroll-snap-align: center;
+  text-align: center;
+  font-size: 1.05rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+  transition: color 0.15s;
+}
+.wheel-item.centered { color: var(--text); }
+.wheel-highlight {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  transform: translateY(-50%);
+  border-top: 1.5px solid var(--border-strong);
+  border-bottom: 1.5px solid var(--border-strong);
+  background: var(--accent-soft);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ---- watch stats recap chip (History / Session Summary) ---- */
+.watch-stats-row {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+  margin-top: 8px;
+}

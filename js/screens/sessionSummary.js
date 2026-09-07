@@ -1,5 +1,106 @@
 import * as State from "../state.js";
 import { EXERCISES } from "../exercises.js";
+import { createWheelPicker, range } from "../wheelPicker.js";
+
+const HR_VALUES = range(60, 200, 5);
+const CAL_VALUES = range(50, 800, 10);
+const DURATION_VALUES = range(5, 180, 1);
+
+function appTrackedDurationMinutes(day) {
+  if (!day.startedAt || !day.completedAt) return null;
+  const mins = Math.round((new Date(day.completedAt) - new Date(day.startedAt)) / 60000);
+  return Math.max(DURATION_VALUES[0], Math.min(DURATION_VALUES[DURATION_VALUES.length - 1], mins));
+}
+
+function closestValue(values, target) {
+  return values.reduce((best, v) => (Math.abs(v - target) < Math.abs(best - target) ? v : best), values[0]);
+}
+
+function watchStatsSummaryHTML(stats) {
+  const parts = [];
+  if (stats.avgHR != null) parts.push(`❤️ ${stats.avgHR} bpm avg`);
+  if (stats.activeCalories != null) parts.push(`🔥 ${stats.activeCalories} cal`);
+  if (stats.durationMinutes != null) parts.push(`⏱ ${stats.durationMinutes} min`);
+  return parts.length ? `<div class="watch-stats-row">${parts.map((p) => `<span>${p}</span>`).join("")}</div>` : "";
+}
+
+function renderWatchStatsCard(container, { weekNumber, dayTemplateId, day, onSaved }) {
+  const slot = container.querySelector("#watchStatsSlot");
+  const existing = day.watchStats;
+
+  if (existing) {
+    slot.innerHTML = `
+      <div class="card">
+        <h2>⌚ Watch Stats</h2>
+        ${watchStatsSummaryHTML(existing)}
+        <button class="btn ghost" id="editWatchStatsBtn" style="margin-top:8px;">Edit</button>
+      </div>
+    `;
+    slot.querySelector("#editWatchStatsBtn").addEventListener("click", () => {
+      day.watchStats = null; // reopen the picker; not saved until they hit Save again
+      renderWatchStatsCard(container, { weekNumber, dayTemplateId, day, onSaved });
+    });
+    return;
+  }
+
+  const defaultDuration = appTrackedDurationMinutes(day);
+
+  slot.innerHTML = `
+    <div class="card">
+      <h2>⌚ Add Watch Stats</h2>
+      <p class="subtle" style="margin-bottom:14px;">Optional — quickly log what your Apple Watch showed for this session. Skip if you don't have it handy.</p>
+      <div class="wheel-row">
+        <div class="wheel-col">
+          <div class="wheel-col-label">Heart Rate</div>
+          <div id="hrWheel"></div>
+          <div class="wheel-unit">bpm avg</div>
+        </div>
+        <div class="wheel-col">
+          <div class="wheel-col-label">Calories</div>
+          <div id="calWheel"></div>
+          <div class="wheel-unit">kcal</div>
+        </div>
+        <div class="wheel-col">
+          <div class="wheel-col-label">Duration</div>
+          <div id="durWheel"></div>
+          <div class="wheel-unit">minutes</div>
+        </div>
+      </div>
+      <button class="btn" id="saveWatchBtn" style="margin-top:16px;">Save Watch Stats</button>
+      <button class="btn ghost" id="skipWatchBtn">Skip</button>
+    </div>
+  `;
+
+  const hrPicker = createWheelPicker(slot.querySelector("#hrWheel"), {
+    values: HR_VALUES,
+    initialValue: closestValue(HR_VALUES, 120),
+    formatLabel: (v) => v,
+  });
+  const calPicker = createWheelPicker(slot.querySelector("#calWheel"), {
+    values: CAL_VALUES,
+    initialValue: closestValue(CAL_VALUES, 300),
+    formatLabel: (v) => v,
+  });
+  const durPicker = createWheelPicker(slot.querySelector("#durWheel"), {
+    values: DURATION_VALUES,
+    initialValue: defaultDuration != null ? closestValue(DURATION_VALUES, defaultDuration) : 50,
+    formatLabel: (v) => v,
+  });
+
+  slot.querySelector("#saveWatchBtn").addEventListener("click", () => {
+    State.saveWatchStats(weekNumber, dayTemplateId, {
+      avgHR: hrPicker.getValue(),
+      activeCalories: calPicker.getValue(),
+      durationMinutes: durPicker.getValue(),
+    });
+    day.watchStats = State.getDay(weekNumber, dayTemplateId).watchStats;
+    renderWatchStatsCard(container, { weekNumber, dayTemplateId, day, onSaved });
+    if (onSaved) onSaved();
+  });
+  slot.querySelector("#skipWatchBtn").addEventListener("click", () => {
+    slot.innerHTML = "";
+  });
+}
 
 export function render(container, { navigate, weekNumber, dayTemplateId }) {
   const day = State.getDay(weekNumber, dayTemplateId);
@@ -76,9 +177,13 @@ export function render(container, { navigate, weekNumber, dayTemplateId }) {
       <div class="stat-tile"><span class="stat-num">${day.exerciseLogs.length}</span><span class="stat-label">Exercises</span></div>
     </div>
 
+    <div id="watchStatsSlot"></div>
+
     ${rowsHTML}
     <button class="btn" id="doneBtn">Back to Dashboard</button>
   `;
+
+  renderWatchStatsCard(container, { weekNumber, dayTemplateId, day, onSaved: null });
 
   container.querySelector("#doneBtn").addEventListener("click", () => navigate("dashboard"));
 }

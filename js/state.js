@@ -243,6 +243,15 @@ export function finishDay(weekNumber, dayTemplateId) {
   return day;
 }
 
+// Manual Apple Watch stats (true HealthKit sync isn't reachable from a
+// PWA — see js/screens/sessionSummary.js). Any field can be null if you
+// don't have that number handy.
+export function saveWatchStats(weekNumber, dayTemplateId, { avgHR, activeCalories, durationMinutes }) {
+  const day = getDay(weekNumber, dayTemplateId);
+  day.watchStats = { avgHR: avgHR ?? null, activeCalories: activeCalories ?? null, durationMinutes: durationMinutes ?? null };
+  saveData(data);
+}
+
 // Full history of a single exercise across every completed session, oldest first.
 export function getExerciseHistory(exerciseId) {
   const history = [];
@@ -296,6 +305,7 @@ export function getCompletedSessions() {
         dayLabel: template ? template.label : day.dayTemplateId,
         completedAt: day.completedAt,
         exerciseLogs: day.exerciseLogs,
+        watchStats: day.watchStats || null,
       });
     }
   }

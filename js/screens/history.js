@@ -210,6 +210,15 @@ function formatDate(iso) {
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
+function watchStatsRowHTML(stats) {
+  if (!stats) return "";
+  const parts = [];
+  if (stats.avgHR != null) parts.push(`❤️ ${stats.avgHR} bpm`);
+  if (stats.activeCalories != null) parts.push(`🔥 ${stats.activeCalories} cal`);
+  if (stats.durationMinutes != null) parts.push(`⏱ ${stats.durationMinutes} min`);
+  return parts.length ? `<div class="watch-stats-row">${parts.map((p) => `<span>${p}</span>`).join("")}</div>` : "";
+}
+
 function renderSessionsView(container) {
   const sessions = State.getCompletedSessions();
   if (sessions.length === 0) {
@@ -225,6 +234,7 @@ function renderSessionsView(container) {
             <div>
               <div class="session-title">${s.dayLabel} ${s.isDeload ? '<span class="chip" style="color:var(--warning);border-color:var(--warning);">Deload</span>' : ""}</div>
               <div class="subtle">Week ${s.weekNumber} · ${formatDate(s.completedAt)}</div>
+              ${watchStatsRowHTML(s.watchStats)}
             </div>
             <span class="session-chevron">▾</span>
           </button>
