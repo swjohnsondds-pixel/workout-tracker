@@ -40,8 +40,16 @@ function parseHash() {
   return { route: route || "dashboard", params };
 }
 
+let previousRoute = null;
+
 function render() {
   const { route, params } = parseHash();
+
+  if (previousRoute === "workout" && route !== "workout") {
+    WorkoutSession.cleanup();
+  }
+  previousRoute = route;
+
   app.innerHTML = "";
 
   const screenEl = document.createElement("div");

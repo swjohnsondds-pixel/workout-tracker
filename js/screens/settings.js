@@ -8,23 +8,50 @@ export function render(container, { navigate }) {
   container.innerHTML = `
     <h1>Settings</h1>
 
-    <div class="card">
-      <h2>Program</h2>
-      <p class="subtle">${program ? `${program.totalWeeks}-week program · deload every ${program.deloadEveryNWeeks} weeks · units: ${program.units}` : "No active program"}</p>
-      <button class="btn secondary" id="newProgramBtn">Start a new program</button>
+    <div class="settings-group">
+      <span class="eyebrow">Program</span>
+      <div class="settings-list">
+        <div class="settings-row" style="cursor:default;">
+          <div class="row-icon">🏋️</div>
+          <div class="row-text">
+            ${program ? `${program.totalWeeks}-week program` : "No active program"}
+            ${program ? `<div class="row-sub">Deload every ${program.deloadEveryNWeeks} weeks · units: ${program.units}</div>` : ""}
+          </div>
+        </div>
+        <button type="button" class="settings-row" id="newProgramBtn">
+          <div class="row-icon">✨</div>
+          <div class="row-text">Start a new program</div>
+          <span class="row-chevron">›</span>
+        </button>
+      </div>
     </div>
 
-    <div class="card">
-      <h2>Backup</h2>
-      <p class="subtle">Your data lives only on this device's browser storage. Export a backup periodically, especially before clearing Safari data.</p>
-      <button class="btn secondary" id="exportBtn">Export backup (JSON)</button>
-      <label class="btn secondary" for="importFile" style="text-align:center;display:block;margin-top:8px;cursor:pointer;">Import backup</label>
-      <input type="file" id="importFile" accept="application/json" style="display:none" />
+    <div class="settings-group">
+      <span class="eyebrow">Backup</span>
+      <div class="settings-list">
+        <button type="button" class="settings-row" id="exportBtn">
+          <div class="row-icon">⬇️</div>
+          <div class="row-text">Export backup<div class="row-sub">Saves a JSON file of all your data</div></div>
+          <span class="row-chevron">›</span>
+        </button>
+        <label class="settings-row" for="importFile" style="cursor:pointer;">
+          <div class="row-icon">⬆️</div>
+          <div class="row-text">Import backup<div class="row-sub">Replaces all current data</div></div>
+          <span class="row-chevron">›</span>
+        </label>
+        <input type="file" id="importFile" accept="application/json" style="display:none" />
+      </div>
+      <p class="subtle" style="margin-top:10px;padding:0 4px;">Your data lives only on this device's browser storage. Export a backup periodically, especially before clearing Safari data.</p>
     </div>
 
-    <div class="card">
-      <h2>Danger zone</h2>
-      <button class="btn secondary" id="clearBtn" style="color:var(--danger);border-color:var(--danger);">Erase all data</button>
+    <div class="settings-group">
+      <span class="eyebrow">Danger Zone</span>
+      <div class="settings-list">
+        <button type="button" class="settings-row danger" id="clearBtn">
+          <div class="row-icon">🗑️</div>
+          <div class="row-text">Erase all data</div>
+        </button>
+      </div>
     </div>
   `;
 

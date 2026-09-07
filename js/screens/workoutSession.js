@@ -4,6 +4,72 @@ import { calculateWarmups } from "../warmups.js";
 import { fetchHowTo } from "../howto.js";
 import { openModal } from "../modal.js";
 
+// ---- rest timer (module-level, independent of screen re-render) ----
+const REST_RING_R = 22;
+const REST_CIRCUMFERENCE = 2 * Math.PI * REST_RING_R;
+let restTimer = { intervalId: null, el: null };
+
+// Called by the router when navigating away from this screen by any means
+// other than its own Back/Finish buttons (which already clean up inline) —
+// e.g. tapping a tab-bar item mid-rest — so the timer never gets orphaned
+// floating over a different screen.
+export function cleanup() {
+  clearRestTimer();
+}
+
+function clearRestTimer() {
+  if (restTimer.intervalId) clearInterval(restTimer.intervalId);
+  if (restTimer.el) restTimer.el.remove();
+  restTimer = { intervalId: null, el: null };
+}
+
+function startRestTimer(seconds, label) {
+  clearRestTimer();
+  let remaining = seconds;
+
+  const el = document.createElement("div");
+  el.className = "rest-timer";
+  el.innerHTML = `
+    <div class="ring-wrap">
+      <svg width="52" height="52" viewBox="0 0 52 52">
+        <circle class="ring-bg" cx="26" cy="26" r="${REST_RING_R}"></circle>
+        <circle class="ring-progress" cx="26" cy="26" r="${REST_RING_R}" stroke-dasharray="${REST_CIRCUMFERENCE}" stroke-dashoffset="0"></circle>
+      </svg>
+      <div class="ring-time"></div>
+    </div>
+    <div class="rest-label">Rest<strong>${label}</strong></div>
+    <button type="button" class="skip-btn">Skip</button>
+  `;
+  document.body.appendChild(el);
+  restTimer.el = el;
+
+  const ringProgress = el.querySelector(".ring-progress");
+  const ringTime = el.querySelector(".ring-time");
+
+  function tick() {
+    const pct = Math.max(0, remaining / seconds);
+    ringProgress.style.strokeDashoffset = String(REST_CIRCUMFERENCE * (1 - pct));
+    if (remaining <= 0) {
+      ringTime.textContent = "✓";
+      el.classList.add("done");
+      clearInterval(restTimer.intervalId);
+      restTimer.intervalId = null;
+      setTimeout(clearRestTimer, 1800);
+    } else {
+      ringTime.textContent = String(remaining);
+    }
+  }
+
+  tick();
+  restTimer.intervalId = setInterval(() => {
+    remaining -= 1;
+    tick();
+  }, 1000);
+
+  el.querySelector(".skip-btn").addEventListener("click", clearRestTimer);
+}
+
+// ---- helpers ----
 function referenceWeight(log) {
   if (log.prescribedWeight != null) return log.prescribedWeight;
   const first = log.workingSets[0];
@@ -38,17 +104,22 @@ function muscleSectionHTML(exerciseDef) {
   `;
 }
 
-function doneLineText(exerciseDef, set) {
-  if (exerciseDef.equipment === "bodyweight") {
-    return `Set ${set.setNumber} — ${set.reps ?? "?"} reps`;
-  }
-  return `Set ${set.setNumber} — ${set.weight ?? "?"} lb × ${set.reps ?? "?"}`;
+function isSetDone(set) {
+  return !!set.done;
+}
+function isExerciseComplete(log) {
+  return log.workingSets.length > 0 && log.workingSets.every(isSetDone);
+}
+
+function doneLineHTML(exerciseDef, set) {
+  const values = exerciseDef.equipment === "bodyweight" ? `${set.reps ?? "?"} reps` : `${set.weight ?? "?"} lb × ${set.reps ?? "?"}`;
+  return `<span class="check-icon">✓</span> Set ${set.setNumber} <span class="set-values">${values}</span>`;
 }
 
 function setRowHTML(log, exerciseDef, i) {
   const set = log.workingSets[i];
   const isBodyweight = exerciseDef.equipment === "bodyweight";
-  const cols = isBodyweight ? "28px 1fr 40px" : "28px 1fr 1fr 40px";
+  const cols = isBodyweight ? "26px 1fr 44px" : "26px 1fr 1fr 44px";
 
   const weightField = isBodyweight
     ? ""
@@ -63,7 +134,7 @@ function setRowHTML(log, exerciseDef, i) {
         <button type="button" class="set-check" data-set="${i}" aria-label="Mark set done">✓</button>
       </div>
       <button type="button" class="set-done-line" data-set-reopen="${i}" ${set.done ? "" : "hidden"}>
-        <span class="check-icon">✓</span> ${doneLineText(exerciseDef, set)}
+        ${doneLineHTML(exerciseDef, set)}
       </button>
     </div>
   `;
@@ -71,7 +142,6 @@ function setRowHTML(log, exerciseDef, i) {
 
 function exerciseCardHTML(log, weekNumber) {
   const exerciseDef = EXERCISES[log.exerciseId];
-
   const setsHTML = log.workingSets.map((_, i) => setRowHTML(log, exerciseDef, i)).join("");
 
   const rirOptions = [0, 1, 2, 3, "4+"];
@@ -85,7 +155,8 @@ function exerciseCardHTML(log, weekNumber) {
 
   return `
     <div class="exercise-card" data-exercise-id="${log.exerciseId}">
-      <button type="button" class="exercise-name-btn" data-howto>${exerciseDef.name} <span class="info-icon">ⓘ how-to</span></button>
+      <span class="card-status-badge" data-status-badge></span>
+      <button type="button" class="exercise-name-btn" data-howto>${exerciseDef.name} <span class="info-icon">ⓘ How-to</span></button>
       <div class="exercise-meta">${log.sets} sets · ${log.repMin}-${log.repMax} reps · target RIR ${log.targetRIR}</div>
       <div class="progress-note">${prescriptionText(log, weekNumber)}</div>
       <div class="warmup-row" data-warmup-row>${warmupText(exerciseDef, log)}</div>
@@ -103,14 +174,10 @@ async function openHowTo(exerciseDef) {
   const body = openModal(`
     <h2>${exerciseDef.name}</h2>
     <div class="modal-cue">${exerciseDef.cue}</div>
-    <div class="modal-media-slot"><div class="modal-loading">Loading demonstration…</div></div>
+    <div class="modal-media-slot"><div class="modal-loading"><span class="spinner"></span>Loading demonstration…</div></div>
   `);
 
   const howto = await fetchHowTo(exerciseDef.wgerId);
-
-  // The modal may have been closed (or replaced by a different exercise's
-  // modal) while the fetch was in flight — bail out rather than touching a
-  // detached node.
   const slot = body.isConnected ? body.querySelector(".modal-media-slot") : null;
   if (!slot) return;
 
@@ -130,6 +197,8 @@ async function openHowTo(exerciseDef) {
 }
 
 export function render(container, { navigate, weekNumber, dayTemplateId }) {
+  clearRestTimer();
+
   const day = State.startDay(weekNumber, dayTemplateId);
   const template = DAY_TEMPLATES.find((t) => t.id === dayTemplateId);
   const week = State.getWeek(weekNumber);
@@ -142,21 +211,77 @@ export function render(container, { navigate, weekNumber, dayTemplateId }) {
           return exerciseCardHTML(log, weekNumber);
         })
         .join("");
-      return `<div class="superset-block">${cards}</div>`;
+      return `<div class="superset-block" data-superset="${ss.id}">${cards}</div>`;
     })
     .join("");
 
   container.innerHTML = `
-    <div class="top-bar">
-      <button class="back" id="backBtn">‹ Back</button>
+    <div class="session-header">
+      <div class="top-bar">
+        <button class="back" id="backBtn">‹ Back</button>
+      </div>
+      <h1>${template.label}</h1>
+      <p class="subtle">Week ${weekNumber} of ${State.getData().program.totalWeeks}${week.isDeload ? " · Deload week" : ""}</p>
+      <div class="session-progress-row">
+        <div class="progress-bar-track"><div class="progress-bar-fill" id="sessionProgressFill" style="width:0%"></div></div>
+        <span class="progress-count" id="sessionProgressCount"></span>
+      </div>
     </div>
-    <h1>${template.label}</h1>
-    <p class="subtle">Week ${weekNumber} of ${State.getData().program.totalWeeks}${week.isDeload ? " · Deload week" : ""}</p>
     ${supersetsHTML}
     <button class="btn" id="finishBtn">Finish Workout</button>
   `;
 
-  container.querySelector("#backBtn").addEventListener("click", () => navigate("dashboard"));
+  container.querySelector("#backBtn").addEventListener("click", () => {
+    clearRestTimer();
+    navigate("dashboard");
+  });
+
+  // ---- flat exercise order, used to compute current/upcoming/complete ----
+  const orderedIds = [];
+  template.supersets.forEach((ss) => ss.exercises.forEach((slot) => orderedIds.push(slot.exerciseId)));
+
+  function refreshCardStates() {
+    let currentIndex = orderedIds.findIndex((id) => {
+      const log = day.exerciseLogs.find((l) => l.exerciseId === id);
+      return !isExerciseComplete(log);
+    });
+    if (currentIndex === -1) currentIndex = orderedIds.length; // everything complete
+
+    orderedIds.forEach((id, i) => {
+      const card = container.querySelector(`.exercise-card[data-exercise-id="${id}"]`);
+      if (!card) return;
+      const badge = card.querySelector("[data-status-badge]");
+      card.classList.remove("state-current", "state-upcoming", "state-complete");
+      if (i < currentIndex) {
+        card.classList.add("state-complete");
+        badge.textContent = "Done";
+        badge.className = "card-status-badge complete";
+      } else if (i === currentIndex) {
+        card.classList.add("state-current");
+        badge.textContent = "In Progress";
+        badge.className = "card-status-badge current";
+      } else {
+        card.classList.add("state-upcoming");
+        badge.textContent = "";
+        badge.className = "card-status-badge";
+      }
+    });
+
+    template.supersets.forEach((ss) => {
+      const block = container.querySelector(`[data-superset="${ss.id}"]`);
+      const ids = ss.exercises.map((s) => s.exerciseId);
+      const logs = ids.map((id) => day.exerciseLogs.find((l) => l.exerciseId === id));
+      const allDone = logs.every(isExerciseComplete);
+      const anyCurrent = ids.some((id) => orderedIds.indexOf(id) === currentIndex);
+      block.classList.toggle("complete", allDone);
+      block.classList.toggle("active", !allDone && anyCurrent);
+    });
+
+    const totalSets = day.exerciseLogs.reduce((sum, l) => sum + l.workingSets.length, 0);
+    const doneSets = day.exerciseLogs.reduce((sum, l) => sum + l.workingSets.filter(isSetDone).length, 0);
+    container.querySelector("#sessionProgressFill").style.width = `${totalSets ? (doneSets / totalSets) * 100 : 0}%`;
+    container.querySelector("#sessionProgressCount").textContent = `${doneSets}/${totalSets} sets`;
+  }
 
   container.querySelectorAll(".exercise-card").forEach((card) => {
     const exerciseId = card.dataset.exerciseId;
@@ -220,19 +345,30 @@ export function render(container, { navigate, weekNumber, dayTemplateId }) {
         State.markSetDone(weekNumber, dayTemplateId, exerciseId, i, true);
         log.workingSets[i].done = true;
 
+        checkBtn.classList.add("firing");
+
+        const ring = document.createElement("span");
+        ring.className = "burst-ring";
+        wrapper.appendChild(ring);
+        setTimeout(() => ring.remove(), 550);
+
         const burst = document.createElement("span");
         burst.className = "checkmark-burst";
         burst.textContent = "✓";
         wrapper.appendChild(burst);
-        setTimeout(() => burst.remove(), 600);
+        setTimeout(() => burst.remove(), 650);
 
-        setRow.classList.add("collapsing");
+        refreshCardStates();
+        startRestTimer(exerciseDef.isCompound ? 90 : 60, exerciseDef.name);
+
         setTimeout(() => {
-          setRow.hidden = true;
-          doneLine.textContent = "";
-          doneLine.innerHTML = `<span class="check-icon">✓</span> ${doneLineText(exerciseDef, log.workingSets[i])}`;
-          doneLine.hidden = false;
-        }, 360);
+          setRow.classList.add("collapsing");
+          setTimeout(() => {
+            setRow.hidden = true;
+            doneLine.innerHTML = doneLineHTML(exerciseDef, log.workingSets[i]);
+            doneLine.hidden = false;
+          }, 340);
+        }, 150);
       });
 
       doneLine.addEventListener("click", () => {
@@ -241,11 +377,16 @@ export function render(container, { navigate, weekNumber, dayTemplateId }) {
         doneLine.hidden = true;
         setRow.hidden = false;
         setRow.classList.remove("collapsing");
+        checkBtn.classList.remove("firing");
+        refreshCardStates();
       });
     });
   });
 
+  refreshCardStates();
+
   container.querySelector("#finishBtn").addEventListener("click", () => {
+    clearRestTimer();
     const anyEmpty = day.exerciseLogs.some((l) => l.workingSets.every((s) => s.reps == null));
     if (anyEmpty && !confirm("Some exercises have no logged sets. Finish workout anyway?")) {
       return;
