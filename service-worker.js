@@ -1,4 +1,4 @@
-const CACHE_NAME = "lift-tracker-v10";
+const CACHE_NAME = "lift-tracker-v12";
 const ASSETS = [
   "./",
   "./index.html",
@@ -8,6 +8,7 @@ const ASSETS = [
   "./js/state.js",
   "./js/storage.js",
   "./js/photoStore.js",
+  "./js/notifications.js",
   "./js/utils.js",
   "./js/wheelPicker.js",
   "./js/warmups.js",
@@ -28,6 +29,10 @@ const ASSETS = [
   "./icons/icon-192.png",
   "./icons/icon-512.png",
   "./icons/icon-180.png",
+  "./images/hero-barbell.jpg",
+  "./images/dumbbell-rack.jpg",
+  "./images/workout-moody.jpg",
+  "./images/dumbbells-row.jpg",
 ];
 
 self.addEventListener("install", (event) => {

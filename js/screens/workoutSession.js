@@ -16,6 +16,47 @@ const REST_CIRCUMFERENCE = 2 * Math.PI * REST_RING_R;
 let restTimer = { intervalId: null, el: null };
 let elapsedIntervalId = null;
 
+// ---- rest timer audio alert ----
+// iOS requires an AudioContext to be resumed from within a real user
+// gesture before it'll play anything. We lazily create/resume it the
+// moment the user taps "Mark Complete" (a real gesture) — the context
+// then stays unlocked, so the LATER beep (fired from a setInterval
+// callback when the timer hits zero, not a gesture) still plays fine.
+let audioCtx = null;
+function unlockAudio() {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+  } catch (e) {
+    audioCtx = null;
+  }
+}
+function playRestDoneBeep() {
+  if (!audioCtx) return;
+  try {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.frequency.value = 880;
+    gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.4);
+  } catch (e) {
+    // ignore — sound is a nice-to-have, never worth breaking the timer over
+  }
+}
+// Note: iOS Safari has never implemented the Vibration API (on any
+// version) — this is a real WebKit limitation, not a bug here. It's
+// still worth calling defensively since it's free and would work on
+// browsers that do support it.
+function tryVibrate(pattern) {
+  try {
+    if (navigator.vibrate) navigator.vibrate(pattern);
+  } catch (e) {}
+}
+
 function clearRestTimer() {
   if (restTimer.intervalId) clearInterval(restTimer.intervalId);
   if (restTimer.el) restTimer.el.remove();
@@ -63,6 +104,8 @@ function startRestTimer(seconds, label) {
       el.classList.add("done");
       clearInterval(restTimer.intervalId);
       restTimer.intervalId = null;
+      playRestDoneBeep();
+      tryVibrate([200, 80, 200]);
       setTimeout(clearRestTimer, 1800);
     } else {
       ringTime.textContent = String(remaining);
@@ -79,6 +122,17 @@ function startRestTimer(seconds, label) {
 }
 
 // ---- pure markup helpers (no closure over session state) ----
+
+const EQUIPMENT_PHOTOS = {
+  barbell: "images/hero-barbell.jpg",
+  dumbbell: "images/dumbbell-rack.jpg",
+  cable: "images/dumbbells-row.jpg",
+  machine: "images/dumbbells-row.jpg",
+  bodyweight: "images/workout-moody.jpg",
+};
+function equipmentPhoto(equipment) {
+  return EQUIPMENT_PHOTOS[equipment] || "images/dumbbells-row.jpg";
+}
 
 function warmupText(exerciseDef, referenceWeight) {
   const warmups = calculateWarmups(exerciseDef, referenceWeight);
@@ -126,7 +180,7 @@ function doneLineInner(exerciseDef, set) {
   return `<span class="check-icon">✓</span><span class="set-values">${values}</span>`;
 }
 
-function stepperFieldHTML(label, kind, exId, r, value, placeholder) {
+function stepperFieldHTML(label, kind, exId, r, value, placeholder, showPlateCalc) {
   return `
     <div class="stepper-field">
       <span class="stepper-label">${label}</span>
@@ -135,8 +189,52 @@ function stepperFieldHTML(label, kind, exId, r, value, placeholder) {
         <input type="number" inputmode="${kind === "weight" ? "decimal" : "numeric"}" class="field-input" data-kind="${kind}" data-ex="${exId}" data-round="${r}" value="${value ?? ""}" placeholder="${placeholder ?? ""}" />
         <button type="button" class="step-btn" data-step="1" data-kind="${kind}" data-ex="${exId}" data-round="${r}">+</button>
       </div>
+      ${showPlateCalc ? `<button type="button" class="plate-calc-link" data-plate-calc data-ex="${exId}" data-round="${r}">🏋️ Plate calculator</button>` : ""}
     </div>
   `;
+}
+
+// Standard 45lb bar + a typical commercial-gym plate set.
+const BAR_WEIGHT = 45;
+const AVAILABLE_PLATES = [45, 35, 25, 10, 5, 2.5];
+
+function calculatePlates(targetWeight) {
+  let perSide = (targetWeight - BAR_WEIGHT) / 2;
+  if (perSide < 0) return { breakdown: [], leftover: perSide, tooLight: true };
+  const breakdown = [];
+  for (const plate of AVAILABLE_PLATES) {
+    const count = Math.floor(perSide / plate + 1e-6);
+    if (count > 0) {
+      breakdown.push({ plate, count });
+      perSide -= count * plate;
+    }
+  }
+  return { breakdown, leftover: Math.round(perSide * 100) / 100, tooLight: false };
+}
+
+function openPlateCalcModal(exerciseName, weight) {
+  if (!Number.isFinite(weight) || weight <= 0) {
+    openModal(`<h2>Plate Calculator</h2><p class="subtle">Enter a weight for ${exerciseName} first.</p>`);
+    return;
+  }
+  const result = calculatePlates(weight);
+  const bodyHTML = result.tooLight
+    ? `<p class="subtle">${weight} lb is below an empty ${BAR_WEIGHT} lb bar — no plates needed.</p>`
+    : `
+      <div class="plate-breakdown">
+        ${
+          result.breakdown.length
+            ? result.breakdown.map((p) => `<div class="plate-row"><span class="plate-chip">${p.plate} lb</span><span>× ${p.count} per side</span></div>`).join("")
+            : `<p class="subtle">Empty ${BAR_WEIGHT} lb bar gets you there.</p>`
+        }
+        ${result.leftover > 0.01 ? `<p class="subtle" style="margin-top:8px;">Closest exact match is ${(weight - result.leftover * 2).toFixed(1)} lb — off by ${(result.leftover * 2).toFixed(1)} lb given standard plates.</p>` : ""}
+      </div>
+    `;
+  openModal(`
+    <h2>Plate Calculator</h2>
+    <p class="subtle" style="margin-bottom:14px;">${exerciseName} — ${weight} lb on a ${BAR_WEIGHT} lb bar</p>
+    ${bodyHTML}
+  `);
 }
 
 function rirRowHTML(log, exId, exName) {
@@ -154,7 +252,14 @@ function painSectionHTML(exerciseId) {
   const def = EXERCISES[exerciseId];
   const flag = State.getActivePainFlag(exerciseId);
   if (!flag) {
-    return `<button type="button" class="btn small secondary" data-flag-pain="${exerciseId}" style="width:auto;margin-bottom:10px;">🚩 Flag pain — ${def.name}</button>`;
+    // General mid-workout swap is always available, independent of a pain
+    // flag — flagging pain is a reason to swap, not the only way to.
+    return `
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+        <button type="button" class="btn small secondary" data-swap-ex="${exerciseId}" style="width:auto;">🔄 Swap Exercise</button>
+        <button type="button" class="btn small secondary" data-flag-pain="${exerciseId}" style="width:auto;">🚩 Flag Pain</button>
+      </div>
+    `;
   }
   return `
     <div class="pain-banner">
@@ -162,7 +267,7 @@ function painSectionHTML(exerciseId) {
       ${flag.note ? `<span class="subtle">${flag.note}</span>` : ""}
       <div class="pain-banner-actions">
         <button type="button" class="btn small secondary" data-resolve-pain="${flag.id}">Feeling better</button>
-        <button type="button" class="btn small" data-swap-pain="${exerciseId}">Swap exercise</button>
+        <button type="button" class="btn small" data-swap-ex="${exerciseId}">Swap exercise</button>
       </div>
     </div>
   `;
@@ -203,14 +308,14 @@ function openFlagPainModal(exerciseId, onSaved) {
   });
 }
 
-function openSwapForPainModal(exerciseId, dayTemplateId, onSwapped) {
+function openSwapModal(exerciseId, dayTemplateId, onSwapped) {
   const template = State.getDayTemplates().find((t) => t.id === dayTemplateId);
   const usedIds = template.supersets.flatMap((ss) => ss.exercises.map((e) => e.exerciseId));
   const alternatives = getAlternatives(exerciseId, dayTemplateId, usedIds);
 
   const body = openModal(`
     <h2>Swap Exercise</h2>
-    <p class="subtle" style="margin-bottom:14px;">Replacing <strong style="color:var(--text)">${EXERCISES[exerciseId].name}</strong> going forward — same sets/reps/RIR, just a different movement that's easier on the flagged joint.</p>
+    <p class="subtle" style="margin-bottom:14px;">Replacing <strong style="color:var(--text)">${EXERCISES[exerciseId].name}</strong> going forward — same sets/reps/RIR, just a different equivalent movement.</p>
     ${
       alternatives.length
         ? alternatives
@@ -238,6 +343,36 @@ function openSwapForPainModal(exerciseId, dayTemplateId, onSwapped) {
 
 function youtubeSearchURL(name) {
   return `https://www.youtube.com/results?search_query=${encodeURIComponent(name + " exercise proper form tutorial")}`;
+}
+
+// priorPR is captured BEFORE this set was marked done (from history only —
+// this session hasn't been saved to history yet), so it genuinely reflects
+// "the best you'd done before right now."
+function checkForPR(exerciseId, set, priorPR) {
+  if (set.reps == null || !priorPR) return; // no baseline yet (e.g. week 1) — nothing to beat
+  const def = EXERCISES[exerciseId];
+  let isNewPR = false;
+  if (def.equipment === "bodyweight") {
+    isNewPR = set.reps > priorPR.minReps;
+  } else if (set.weight != null && priorPR.weight != null) {
+    isNewPR = set.weight > priorPR.weight || (set.weight === priorPR.weight && set.reps > priorPR.minReps);
+  }
+  if (isNewPR) celebratePR(def, set.weight, set.reps);
+}
+
+function celebratePR(def, weight, reps) {
+  const el = document.createElement("div");
+  el.className = "pr-celebration";
+  const detail = weight != null ? `${def.name} — ${weight} lb × ${reps}` : `${def.name} — ${reps} reps`;
+  el.innerHTML = `
+    <div class="pr-celebration-emoji">🎉</div>
+    <div class="pr-celebration-title">New PR!</div>
+    <div class="pr-celebration-detail">${detail}</div>
+  `;
+  document.body.appendChild(el);
+  tryVibrate([120, 60, 120, 60, 200]);
+  setTimeout(() => el.classList.add("fade-out"), 1700);
+  setTimeout(() => el.remove(), 2100);
 }
 
 function youtubeLinkHTML(exerciseDef) {
@@ -343,6 +478,11 @@ export function render(container, { navigate, weekNumber, dayTemplateId }) {
       <button type="button" id="prevBtn">‹ Prev</button>
       <button type="button" id="nextBtn">Next ›</button>
     </div>
+
+    <div class="card" style="margin-top:18px;">
+      <h2>Session Notes</h2>
+      <textarea id="sessionNotes" class="notes-textarea" placeholder="How did this session feel? Anything worth remembering for next time?">${day.notes || ""}</textarea>
+    </div>
   `;
 
   container.querySelector("#backBtn").addEventListener("click", () => {
@@ -354,6 +494,9 @@ export function render(container, { navigate, weekNumber, dayTemplateId }) {
   container.querySelector("#nextBtn").addEventListener("click", () => {
     if (currentIndex === units.length - 1) attemptFinish();
     else goToUnit(currentIndex + 1);
+  });
+  container.querySelector("#sessionNotes").addEventListener("input", (e) => {
+    State.setSessionNotes(weekNumber, dayTemplateId, e.target.value);
   });
 
   function attemptFinish() {
@@ -441,7 +584,7 @@ export function render(container, { navigate, weekNumber, dayTemplateId }) {
             ${isFirstRound ? `<div class="progress-note">${prescriptionText(log, weekNumber)}</div>` : ""}
             ${isFirstRound ? `<div class="warmup-row" data-warmup-for="${id}">${warmup}</div>` : ""}
             <div class="set-controls" ${set.done ? "hidden" : ""}>
-              ${isBW ? "" : stepperFieldHTML("Weight (lb)", "weight", id, r, set.weight, log.prescribedWeight)}
+              ${isBW ? "" : stepperFieldHTML("Weight (lb)", "weight", id, r, set.weight, log.prescribedWeight, def.equipment === "barbell")}
               ${stepperFieldHTML("Reps", "reps", id, r, set.reps, log.targetReps ?? log.repMax)}
               <button type="button" class="mark-complete-btn" data-complete data-ex="${id}" data-round="${r}">Mark Complete</button>
             </div>
@@ -496,13 +639,22 @@ export function render(container, { navigate, weekNumber, dayTemplateId }) {
         paintUnit();
       });
     });
-    slot.querySelectorAll("[data-swap-pain]").forEach((btn) => {
+    slot.querySelectorAll("[data-swap-ex]").forEach((btn) => {
       // Swapping changes the day template itself, not just this exercise's
       // log — re-run the whole screen render so `units` picks up the new
       // exerciseIds rather than trying to patch the current closure's copy.
       btn.addEventListener("click", () =>
-        openSwapForPainModal(btn.dataset.swapPain, dayTemplateId, () => render(container, { navigate, weekNumber, dayTemplateId }))
+        openSwapModal(btn.dataset.swapEx, dayTemplateId, () => render(container, { navigate, weekNumber, dayTemplateId }))
       );
+    });
+
+    slot.querySelectorAll("[data-plate-calc]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const exId = btn.dataset.ex;
+        const r = Number(btn.dataset.round);
+        const input = slot.querySelector(`.field-input[data-ex="${exId}"][data-round="${r}"][data-kind="weight"]`);
+        openPlateCalcModal(EXERCISES[exId].name, parseFloat(input.value));
+      });
     });
 
     function persist(exId, r, kind, rawValue) {
@@ -555,9 +707,13 @@ export function render(container, { navigate, weekNumber, dayTemplateId }) {
     });
 
     function handleComplete(exId, r) {
+      unlockAudio(); // this tap is a real user gesture — unlock now so the rest timer's later beep can play
+
+      const priorPR = State.getPR(exId);
       State.markSetDone(weekNumber, dayTemplateId, exId, r, true);
       const log = findLog(exId);
       log.workingSets[r].done = true;
+      checkForPR(exId, log.workingSets[r], priorPR);
 
       const roundExerciseEl = slot.querySelector(`.round-exercise[data-ex="${exId}"][data-round="${r}"]`);
       const controls = roundExerciseEl.querySelector(".set-controls");
@@ -629,7 +785,8 @@ export function render(container, { navigate, weekNumber, dayTemplateId }) {
   function paintUnit() {
     const slot = container.querySelector("#unitCardSlot");
     const unit = units[currentIndex];
-    slot.innerHTML = `<div class="unit-card">${unitCardHTML(unit)}</div>`;
+    const photoURL = equipmentPhoto(EXERCISES[unit.exerciseIds[0]].equipment);
+    slot.innerHTML = `<div class="unit-card"><div class="unit-card-photo" style="background-image:url('${photoURL}');"></div>${unitCardHTML(unit)}</div>`;
     wireUnitCard(slot.querySelector(".unit-card"), unit);
     updateHeaderProgress();
     updateNavButtons();

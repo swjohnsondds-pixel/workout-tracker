@@ -7,6 +7,12 @@ export function render(container, { navigate }) {
   let weeks = 8;
 
   container.innerHTML = `
+    <div class="photo-banner tall" style="background-image:url('images/dumbbell-rack.jpg');">
+      <div class="photo-banner-text">
+        <span class="eyebrow">Ready When You Are</span>
+        <strong>Build Your Program</strong>
+      </div>
+    </div>
     <h1>${hasProgram ? "New Program" : "Set Up Your Program"}</h1>
     <div class="info-card">
       A 4-day split, every week: <strong>Upper A → Lower A + Arms → Upper B → Lower B + Arms</strong>.

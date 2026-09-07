@@ -165,11 +165,20 @@ export function render(container, { navigate, weekNumber, dayTemplateId }) {
     .join("");
 
   container.innerHTML = `
+    <div class="photo-banner tall" style="background-image:url('images/workout-moody.jpg');">
+      <div class="photo-banner-text">
+        <span class="eyebrow">Session Complete</span>
+        <strong>Well Done</strong>
+      </div>
+    </div>
+
     <div class="summary-hero">
       <div class="summary-icon">💪</div>
       <h1>Workout Complete</h1>
       <p class="subtle">${template.label} · Week ${weekNumber}</p>
     </div>
+
+    ${day.notes ? `<div class="card"><h2>Your Notes</h2><p class="subtle" style="white-space:pre-line;">${day.notes}</p></div>` : ""}
 
     <div class="stat-grid">
       <div class="stat-tile"><span class="stat-num">${setsCompleted}</span><span class="stat-label">Sets</span></div>

@@ -128,6 +128,9 @@ export function importDataFromFile(file) {
 const NAME_KEY = "workoutTrackerUserName";
 const LAST_EXPORT_KEY = "workoutTrackerLastExportAt";
 const LAST_BACKUP_NUDGE_KEY = "workoutTrackerLastBackupNudgeAt";
+const HEIGHT_KEY = "workoutTrackerHeightInches";
+const NOTIFICATIONS_ENABLED_KEY = "workoutTrackerNotificationsEnabled";
+const LAST_NOTIFIED_KEY = "workoutTrackerLastNotifiedAt";
 
 export function getUserName() {
   return localStorage.getItem(NAME_KEY) || "Steven";
@@ -151,4 +154,32 @@ export function getLastBackupNudgeAt() {
 
 export function markBackupNudged() {
   localStorage.setItem(LAST_BACKUP_NUDGE_KEY, new Date().toISOString());
+}
+
+// Height is a one-time-ish profile value (needed for BMI) rather than
+// something logged per body-composition entry.
+export function getHeightInches() {
+  const v = localStorage.getItem(HEIGHT_KEY);
+  return v ? parseFloat(v) : null;
+}
+
+export function setHeightInches(inches) {
+  if (inches == null) localStorage.removeItem(HEIGHT_KEY);
+  else localStorage.setItem(HEIGHT_KEY, String(inches));
+}
+
+export function getNotificationsEnabled() {
+  return localStorage.getItem(NOTIFICATIONS_ENABLED_KEY) === "true";
+}
+
+export function setNotificationsEnabled(enabled) {
+  localStorage.setItem(NOTIFICATIONS_ENABLED_KEY, enabled ? "true" : "false");
+}
+
+export function getLastNotifiedAt() {
+  return localStorage.getItem(LAST_NOTIFIED_KEY);
+}
+
+export function markNotified() {
+  localStorage.setItem(LAST_NOTIFIED_KEY, new Date().toISOString());
 }

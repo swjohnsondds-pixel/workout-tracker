@@ -1,5 +1,6 @@
 import * as State from "./state.js";
 import { getUserName } from "./storage.js";
+import { maybeShowTrainingReminder } from "./notifications.js";
 import * as Dashboard from "./screens/dashboard.js";
 import * as ProgramSetup from "./screens/programSetup.js";
 import * as ReviewExercises from "./screens/reviewExercises.js";
@@ -12,6 +13,7 @@ import * as Body from "./screens/body.js";
 import * as CheckIn from "./screens/checkin.js";
 
 const app = document.getElementById("app");
+const EXIT_MS = 160;
 
 export function navigate(path) {
   window.location.hash = path;
@@ -47,7 +49,9 @@ function parseHash() {
 
 let previousRoute = null;
 
-function render() {
+// Builds the DOM for the current hash into a fresh #app — the actual
+// per-screen rendering logic, unconcerned with transitions.
+function renderRoute() {
   const { route, params } = parseHash();
 
   if (previousRoute === "workout" && route !== "workout") {
@@ -93,6 +97,28 @@ function render() {
   }
 }
 
+// Screen-to-screen transition: fade the outgoing .screen out, swap the DOM,
+// then let the incoming .screen's own CSS enter-animation (screenIn) play.
+// Sequential rather than a true overlapping crossfade — simpler and more
+// robust than absolutely-positioning two differently-sized screens against
+// each other, while still reading as a smooth transition instead of a cut.
+// Only the .screen fades (not the fixed tab bar, which is persistent chrome).
+let transitioning = false;
+function render() {
+  if (transitioning) return; // a transition is already in flight; let it finish
+  const oldScreen = app.querySelector(".screen");
+  if (!oldScreen) {
+    renderRoute();
+    return;
+  }
+  transitioning = true;
+  oldScreen.classList.add("screen-exit");
+  setTimeout(() => {
+    renderRoute();
+    transitioning = false;
+  }, EXIT_MS);
+}
+
 function showWelcomeSplash() {
   const el = document.createElement("div");
   el.className = "welcome-splash";
@@ -112,8 +138,9 @@ window.addEventListener("hashchange", render);
 // Module scripts execute after the document has been parsed, so the DOM is
 // already available here — no need to wait for DOMContentLoaded.
 State.init();
-render();
+renderRoute();
 showWelcomeSplash();
+if (State.hasActiveProgram()) maybeShowTrainingReminder();
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {

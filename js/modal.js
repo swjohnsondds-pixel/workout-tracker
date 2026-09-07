@@ -3,12 +3,19 @@
 // which screen is currently mounted.
 
 let currentOverlay = null;
+const CLOSE_MS = 200;
 
 export function closeModal() {
-  if (currentOverlay) {
-    currentOverlay.remove();
-    currentOverlay = null;
-  }
+  if (!currentOverlay) return;
+  // Capture the node directly rather than relying on the shared variable —
+  // openModal() calls closeModal() to clear out a previous modal before
+  // showing a new one, so by the time this timeout fires `currentOverlay`
+  // may already point at that new modal instead of this one.
+  const overlay = currentOverlay;
+  currentOverlay = null;
+  overlay.classList.add("closing");
+  overlay.style.pointerEvents = "none"; // don't let a fading-out modal eat taps meant for what's behind it
+  setTimeout(() => overlay.remove(), CLOSE_MS);
 }
 
 export function openModal(innerHTML) {

@@ -218,6 +218,12 @@ export function logRIR(weekNumber, dayTemplateId, exerciseId, rir) {
   saveData(data);
 }
 
+export function setSessionNotes(weekNumber, dayTemplateId, notes) {
+  const day = getDay(weekNumber, dayTemplateId);
+  day.notes = notes;
+  saveData(data);
+}
+
 export function finishDay(weekNumber, dayTemplateId) {
   const day = getDay(weekNumber, dayTemplateId);
   const template = findDayTemplate(dayTemplateId);
@@ -306,11 +312,34 @@ export function getCompletedSessions() {
         completedAt: day.completedAt,
         exerciseLogs: day.exerciseLogs,
         watchStats: day.watchStats || null,
+        notes: day.notes || "",
       });
     }
   }
   sessions.sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt));
   return sessions;
+}
+
+// Confirmed (checked-off) sets this week, attributed to each exercise's
+// primary muscle group(s). An exercise with two primary muscles (e.g. Box
+// Squat -> Quads + Glutes) counts its full set total toward each — a rough
+// volume gauge, not a precise per-muscle accounting.
+export function getWeeklyVolumeByMuscleGroup(weekNumber) {
+  const week = getWeek(weekNumber);
+  const totals = {};
+  if (!week) return totals;
+  for (const day of week.days) {
+    if (!day.exerciseLogs) continue;
+    for (const log of day.exerciseLogs) {
+      const doneSets = log.workingSets.filter((s) => s.done).length;
+      if (doneSets === 0) continue;
+      const def = EXERCISES[log.exerciseId];
+      for (const muscle of def.primary) {
+        totals[muscle] = (totals[muscle] || 0) + doneSets;
+      }
+    }
+  }
+  return totals; // { "Quads": 9, "Chest": 6, ... }
 }
 
 export function getWeeksRemaining() {
@@ -412,6 +441,13 @@ function lastActivityISO() {
   return last;
 }
 
+// Exposed for the training-reminder notification (js/notifications.js),
+// which uses a much shorter threshold than the missed-session prompt above.
+export function getDaysSinceLastActivity() {
+  if (!data || !data.program) return Infinity;
+  return (Date.now() - new Date(lastActivityISO()).getTime()) / 86400000;
+}
+
 // Returns { daysSince, next } if a missed-session prompt should be shown
 // right now, else null.
 export function checkMissedSession() {
@@ -497,12 +533,28 @@ export function swapExerciseInProgram(dayTemplateId, oldExerciseId, newExerciseI
 // Photo binaries live in IndexedDB (see photoStore.js); entries here only
 // hold a photoId reference plus the lightweight metadata.
 
-export function addBodyEntry({ dateISO, weight, bodyFatPct, notes, photoId }) {
+export function addBodyEntry({
+  dateISO,
+  weight,
+  bodyFatPct,
+  muscleMassLb,
+  waterPct,
+  boneMassLb,
+  visceralFat,
+  metabolicAge,
+  notes,
+  photoId,
+}) {
   persistent.bodyEntries.push({
     id: uid(),
     dateISO,
     weight: weight ?? null,
     bodyFatPct: bodyFatPct ?? null,
+    muscleMassLb: muscleMassLb ?? null,
+    waterPct: waterPct ?? null,
+    boneMassLb: boneMassLb ?? null,
+    visceralFat: visceralFat ?? null,
+    metabolicAge: metabolicAge ?? null,
     notes: notes || "",
     photoId: photoId || null,
   });

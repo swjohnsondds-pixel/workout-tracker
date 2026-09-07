@@ -1,6 +1,7 @@
 import * as State from "../state.js";
 import { exportDataAsFile, importDataFromFile, wipeEverything, getUserName, setUserName } from "../storage.js";
 import { EXERCISES } from "../exercises.js";
+import { isEnabled as remindersEnabled, getPermission, enableReminders, disableReminders, notificationsSupported } from "../notifications.js";
 
 export function render(container, { navigate }) {
   const data = State.getData();
@@ -76,6 +77,27 @@ export function render(container, { navigate }) {
     ` : ""}
 
     <div class="settings-group">
+      <span class="eyebrow">Reminders</span>
+      <div class="card">
+        <h2 style="display:flex;align-items:center;justify-content:space-between;">
+          Workout Reminders
+          <span class="notif-status ${remindersEnabled() ? "on" : "off"}">${remindersEnabled() ? "On" : "Off"}</span>
+        </h2>
+        <p class="subtle" style="margin-bottom:12px;">
+          ${notificationsSupported()
+            ? "Shows a real notification when you open Lift Tracker on a day you're overdue to train. Since this app has no server, it can't wake your phone in the background like a text message — it fires when you open the app, not before."
+            : "Notifications aren't supported in this browser."}
+        </p>
+        ${
+          notificationsSupported()
+            ? `<button class="btn ${remindersEnabled() ? "secondary" : ""}" id="notifToggleBtn">${remindersEnabled() ? "Turn Off Reminders" : "Enable Reminders"}</button>
+               ${getPermission() === "denied" ? '<p class="subtle" style="margin-top:8px;color:var(--danger);">Notifications are blocked for this app in iOS Settings → Notifications → Lift Tracker.</p>' : ""}`
+            : ""
+        }
+      </div>
+    </div>
+
+    <div class="settings-group">
       <span class="eyebrow">Backup</span>
       <div class="settings-list">
         <button type="button" class="settings-row" id="exportBtn">
@@ -107,6 +129,20 @@ export function render(container, { navigate }) {
   container.querySelector("#nameInput").addEventListener("change", (e) => {
     setUserName(e.target.value.trim());
   });
+
+  const notifBtn = container.querySelector("#notifToggleBtn");
+  if (notifBtn) {
+    notifBtn.addEventListener("click", async () => {
+      if (remindersEnabled()) {
+        disableReminders();
+        render(container, { navigate });
+      } else {
+        const result = await enableReminders();
+        if (!result.ok) alert(result.reason);
+        render(container, { navigate });
+      }
+    });
+  }
 
   container.querySelector("#newProgramBtn").addEventListener("click", () => navigate("setup"));
   container.querySelector("#bodyCompBtn").addEventListener("click", () => navigate("body"));

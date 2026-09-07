@@ -1,4 +1,6 @@
 import * as State from "../state.js";
+import { EXERCISES } from "../exercises.js";
+import { computeDeloadPrescription } from "../progression.js";
 import { getUserName, getLastExportAt, getLastBackupNudgeAt, markBackupNudged, exportDataAsFile } from "../storage.js";
 import { openModal, closeModal } from "../modal.js";
 
@@ -45,6 +47,40 @@ function computeDayStats(dayTemplateId) {
   const avgRIR = rirCount ? Math.round((rirSum / rirCount) * 10) / 10 : 0;
   const estMinutes = Math.max(20, Math.round((totalSets * 2.5) / 5) * 5);
   return { totalSets, avgRIR, estMinutes };
+}
+
+// Exercise-by-exercise preview of the next workout — what's coming and at
+// what weight, without actually starting the day (no state mutation).
+function nextWorkoutPreviewHTML(next, weekNumber, isDeload) {
+  const template = State.getDayTemplates().find((t) => t.id === next.dayTemplateId);
+  const cache = State.getData().progressionCache;
+
+  const rows = [];
+  template.supersets.forEach((ss) => {
+    ss.exercises.forEach((slot) => {
+      const def = EXERCISES[slot.exerciseId];
+      const cached = cache[slot.exerciseId];
+      let text;
+      if (weekNumber === 1) {
+        text = "Log what you hit";
+      } else if (!cached) {
+        text = "Not yet established";
+      } else if (isDeload) {
+        const d = computeDeloadPrescription(def, slot, cached);
+        text = d.weight != null ? `${d.weight} lb × ${d.targetReps}` : `${d.targetReps} reps`;
+      } else {
+        text = cached.weight != null ? `${cached.weight} lb × ${cached.targetReps}` : `${cached.targetReps} reps`;
+      }
+      rows.push(`<div class="session-recap-row"><span>${def.name}</span><span class="subtle">${text}</span></div>`);
+    });
+  });
+
+  return `
+    <button type="button" class="muscle-toggle" id="previewToggle" style="margin-top:4px;">Preview Exercises ▾</button>
+    <div class="muscle-panel" hidden id="previewPanel" style="padding:0;background:none;border:none;">
+      <div class="card" style="padding-top:6px;padding-bottom:2px;">${rows.join("")}</div>
+    </div>
+  `;
 }
 
 function sessionProgressPct(day) {
@@ -174,6 +210,7 @@ export function render(container, { navigate }) {
       <h2>${dayLabel(next.dayTemplateId)}</h2>
       <p class="hero-note">${heroNote(week.weekNumber, week.isDeload)}</p>
       <button class="btn" id="startWorkout">${next.day.status === "in_progress" ? "Resume Workout" : "Let's Workout"}</button>
+      ${nextWorkoutPreviewHTML(next, week.weekNumber, week.isDeload)}
     </div>
 
     <div class="section-header">
@@ -197,6 +234,14 @@ export function render(container, { navigate }) {
     }
   });
   container.querySelector("#programCard").addEventListener("click", () => navigate("program"));
+
+  const previewToggle = container.querySelector("#previewToggle");
+  const previewPanel = container.querySelector("#previewPanel");
+  previewToggle.addEventListener("click", () => {
+    const wasHidden = previewPanel.hidden;
+    previewPanel.hidden = !wasHidden;
+    previewToggle.textContent = wasHidden ? "Preview Exercises ▴" : "Preview Exercises ▾";
+  });
 
   maybeShowBackupReminder(container, navigate);
   maybeShowMissedSessionPrompt(container, navigate);

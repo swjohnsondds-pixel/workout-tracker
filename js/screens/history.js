@@ -191,7 +191,7 @@ function renderExerciseView(container, initialId) {
 }
 
 function sessionRecapHTML(session) {
-  return session.exerciseLogs
+  const exerciseRows = session.exerciseLogs
     .map((log) => {
       const def = EXERCISES[log.exerciseId];
       const setsText =
@@ -202,6 +202,10 @@ function sessionRecapHTML(session) {
       return `<div class="session-recap-row"><span>${def.name}</span><span class="subtle">${setsText}${log.rir != null ? ` · RIR ${log.rir}` : ""}</span></div>`;
     })
     .join("");
+  const notesHTML = session.notes
+    ? `<div class="session-recap-row" style="flex-direction:column;align-items:flex-start;gap:4px;"><strong>Notes</strong><span class="subtle" style="white-space:pre-line;">${session.notes}</span></div>`
+    : "";
+  return exerciseRows + notesHTML;
 }
 
 function formatDate(iso) {
@@ -310,6 +314,52 @@ function renderCalendarView(container) {
   `;
 }
 
+function renderVolumeView(container) {
+  const data = State.getData();
+  const next = State.getNextWorkout();
+  const defaultWeek = next ? next.weekNumber : data.weeks[data.weeks.length - 1].weekNumber;
+
+  container.innerHTML = `
+    <div class="exercise-picker-wrap">
+      <select id="volumeWeekPicker">
+        ${data.weeks
+          .map(
+            (w) =>
+              `<option value="${w.weekNumber}" ${w.weekNumber === defaultWeek ? "selected" : ""}>Week ${w.weekNumber}${w.isDeload ? " (Deload)" : ""}</option>`
+          )
+          .join("")}
+      </select>
+    </div>
+    <div id="volumeBody"></div>
+  `;
+
+  const picker = container.querySelector("#volumeWeekPicker");
+  const body = container.querySelector("#volumeBody");
+
+  function paint(weekNumber) {
+    const totals = State.getWeeklyVolumeByMuscleGroup(Number(weekNumber));
+    const entries = Object.entries(totals).sort((a, b) => b[1] - a[1]);
+    if (entries.length === 0) {
+      body.innerHTML = `<div class="empty-state"><span class="empty-icon">🏋️</span><h2>No sets yet</h2><p class="subtle">Complete a session this week to see volume by muscle group.</p></div>`;
+      return;
+    }
+    const max = entries[0][1];
+    body.innerHTML = `<div class="card">${entries
+      .map(
+        ([muscle, sets]) => `
+          <div class="volume-row">
+            <div class="volume-row-label"><span>${muscle}</span><span class="subtle">${sets} set${sets === 1 ? "" : "s"}</span></div>
+            <div class="progress-bar-track"><div class="progress-bar-fill" style="width:${Math.round((sets / max) * 100)}%"></div></div>
+          </div>
+        `
+      )
+      .join("")}</div>`;
+  }
+
+  picker.addEventListener("change", () => paint(picker.value));
+  paint(defaultWeek);
+}
+
 export function render(container, { navigate }) {
   const data = State.getData();
 
@@ -321,11 +371,18 @@ export function render(container, { navigate }) {
   let view = "exercise";
 
   container.innerHTML = `
+    <div class="photo-banner" style="background-image:url('images/dumbbells-row.jpg');">
+      <div class="photo-banner-text">
+        <span class="eyebrow">Track The Climb</span>
+        <strong>Your Progress</strong>
+      </div>
+    </div>
     <h1>History</h1>
     <div class="view-toggle">
-      <button type="button" data-view="exercise" class="active">By Exercise</button>
+      <button type="button" data-view="exercise" class="active">Exercise</button>
       <button type="button" data-view="sessions">Sessions</button>
       <button type="button" data-view="calendar">Calendar</button>
+      <button type="button" data-view="volume">Volume</button>
     </div>
     <div id="historyView"></div>
   `;
@@ -337,7 +394,8 @@ export function render(container, { navigate }) {
     toggleBtns.forEach((b) => b.classList.toggle("active", b.dataset.view === view));
     if (view === "exercise") renderExerciseView(viewSlot, Object.keys(EXERCISES)[0]);
     else if (view === "sessions") renderSessionsView(viewSlot);
-    else renderCalendarView(viewSlot);
+    else if (view === "calendar") renderCalendarView(viewSlot);
+    else renderVolumeView(viewSlot);
   }
 
   toggleBtns.forEach((btn) => {
