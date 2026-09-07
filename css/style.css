@@ -224,6 +224,23 @@ button { font-family: inherit; cursor: pointer; }
   appearance: none;
   -webkit-appearance: none;
 }
+.field input[type="date"] {
+  width: 100%;
+  padding: 14px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--border-strong);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 1rem;
+  font-weight: 600;
+  color-scheme: dark;
+}
+.field input[type="file"] {
+  width: 100%;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  padding: 8px 0;
+}
 .field input:focus, .field select:focus {
   outline: none;
   border-color: var(--accent);
@@ -334,6 +351,8 @@ button { font-family: inherit; cursor: pointer; }
 }
 .day-pip.done { border-color: transparent; background: var(--success-soft); }
 .day-pip.done .pip-dot { background: var(--success); border-color: var(--success); }
+.day-pip.skipped { border-color: transparent; background: var(--danger-soft); }
+.day-pip.skipped .pip-dot { background: var(--danger); border-color: var(--danger); }
 .day-pip.today { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .day-pip.today .pip-dot { background: var(--accent); border-color: var(--accent); }
 .day-pip .pip-label {
@@ -343,7 +362,7 @@ button { font-family: inherit; cursor: pointer; }
   text-transform: uppercase;
   letter-spacing: 0.02em;
 }
-.day-pip.done .pip-label, .day-pip.today .pip-label { color: var(--text); }
+.day-pip.done .pip-label, .day-pip.today .pip-label, .day-pip.skipped .pip-label { color: var(--text); }
 
 .progress-bar-track {
   height: 8px;
@@ -1241,6 +1260,30 @@ select#historyExercisePicker:focus {
 .settings-row.danger { color: var(--danger); }
 .settings-row.danger .row-icon { background: var(--danger-soft); }
 
+/* ---- body composition ---- */
+.body-thumb {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.body-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.compare-pair { display: flex; gap: 10px; }
+.compare-side { flex: 1; text-align: center; }
+.compare-side img {
+  width: 100%;
+  aspect-ratio: 3/4;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+  margin-bottom: 6px;
+}
+
 /* ============================================================
    MODAL
    ============================================================ */
@@ -1353,3 +1396,128 @@ select#historyExercisePicker:focus {
   animation: spin 0.7s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ============================================================
+   WELCOME SPLASH (app-open greeting, ~1.3s total)
+   ============================================================ */
+.welcome-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: splashIn 0.3s var(--ease-out);
+}
+.welcome-splash.fade-out {
+  animation: splashOut 0.35s var(--ease-standard) forwards;
+}
+.welcome-content { text-align: center; }
+.welcome-icon {
+  font-size: 3rem;
+  margin-bottom: 14px;
+  animation: welcomeIconPop 0.55s var(--ease-spring);
+}
+.welcome-text {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: -0.02em;
+  opacity: 0;
+  animation: welcomeTextIn 0.45s var(--ease-out) 0.15s forwards;
+}
+@keyframes splashIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes splashOut { from { opacity: 1; } to { opacity: 0; } }
+@keyframes welcomeIconPop {
+  0% { transform: scale(0.5); opacity: 0; }
+  60% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes welcomeTextIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ============================================================
+   STREAK CALENDAR
+   ============================================================ */
+.streak-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+.streak-cell {
+  aspect-ratio: 1;
+  border-radius: 4px;
+  background: var(--surface-2);
+}
+.streak-cell.trained { background: var(--success); }
+.streak-cell.skipped { background: var(--danger); opacity: 0.55; }
+.streak-cell.future { background: transparent; }
+.streak-legend {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 12px;
+  font-size: 0.76rem;
+  color: var(--text-tertiary);
+}
+.streak-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.streak-legend .dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.streak-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+/* ============================================================
+   CHECK-IN
+   ============================================================ */
+.checkin-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 20px 0;
+}
+.checkin-option {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px;
+  border-radius: var(--radius-lg);
+  border: 1.5px solid var(--border-strong);
+  background: var(--surface);
+  text-align: left;
+  transition: transform 0.15s var(--ease-spring), border-color 0.15s, background 0.15s;
+}
+.checkin-option:active { transform: scale(0.97); background: var(--surface-2); }
+.checkin-option .checkin-emoji { font-size: 2rem; }
+.checkin-option .checkin-label { font-weight: 700; font-size: 1.02rem; color: var(--text); }
+.checkin-option .checkin-sub { font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px; }
+
+/* ============================================================
+   PAIN FLAG
+   ============================================================ */
+.pain-banner {
+  background: var(--danger-soft);
+  border: 1px solid rgba(251, 91, 78, 0.3);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  font-size: 0.85rem;
+}
+.pain-banner strong { color: var(--danger); display: block; margin-bottom: 6px; }
+.pain-banner-actions { display: flex; gap: 8px; margin-top: 10px; }
+.joint-chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.joint-chip {
+  padding: 9px 14px;
+  border-radius: var(--radius-full);
+  border: 1.5px solid var(--border-strong);
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+.joint-chip.selected { background: var(--danger); color: #fff; border-color: var(--danger); }

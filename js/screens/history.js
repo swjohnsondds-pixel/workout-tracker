@@ -7,21 +7,25 @@ const PAD_X = 10;
 const PAD_TOP = 14;
 const PAD_BOTTOM = 22;
 
-function buildChart(history, pr) {
-  const points = history.map((h, i) => ({ i, weight: h.weight, isPR: pr && h.weekNumber === pr.weekNumber })).filter((p) => p.weight != null);
+// Generic small line/area chart, reused for both the weight trend and the
+// RIR trend — parameterized by which field to plot and what color to use,
+// rather than duplicating near-identical SVG-building logic per chart.
+function svgLineChart(history, valueKey, { color, highlightWeek } = {}) {
+  const points = history
+    .map((h, i) => ({ i, value: h[valueKey], weekNumber: h.weekNumber }))
+    .filter((p) => p.value != null);
   if (points.length < 2) return "";
 
-  const min = Math.min(...points.map((p) => p.weight));
-  const max = Math.max(...points.map((p) => p.weight));
+  const min = Math.min(...points.map((p) => p.value));
+  const max = Math.max(...points.map((p) => p.value));
   const range = max - min || 1;
   const plotW = CHART_W - PAD_X * 2;
   const plotH = CHART_H - PAD_TOP - PAD_BOTTOM;
 
-  const xy = (p) => {
-    const x = PAD_X + (history.length === 1 ? 0 : (p.i / (history.length - 1)) * plotW);
-    const y = PAD_TOP + plotH - ((p.weight - min) / range) * plotH;
-    return [x, y];
-  };
+  const xy = (p) => [
+    PAD_X + (history.length === 1 ? 0 : (p.i / (history.length - 1)) * plotW),
+    PAD_TOP + plotH - ((p.value - min) / range) * plotH,
+  ];
 
   const coords = points.map((p) => ({ ...p, xy: xy(p) }));
   const linePath = coords.map((p, i) => `${i === 0 ? "M" : "L"}${p.xy[0].toFixed(1)},${p.xy[1].toFixed(1)}`).join(" ");
@@ -36,12 +40,16 @@ function buildChart(history, pr) {
     })
     .join("");
 
+  const gradientId = `grad-${valueKey}-${color.replace("#", "")}`;
   const dots = coords
     .map((p) => {
       const [x, y] = p.xy;
       const isLast = p === last;
-      const cls = p.isPR ? "chart-dot-pr" : isLast ? "chart-dot-last" : "chart-dot";
-      return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${p.isPR || isLast ? 5 : 3}" class="${cls}" />`;
+      const isHighlight = highlightWeek != null && p.weekNumber === highlightWeek;
+      const fill = isHighlight ? "#fbbf24" : isLast ? color : "#0a0c11";
+      const stroke = isHighlight ? "#0a0c11" : color;
+      const r = isHighlight || isLast ? 5 : 3;
+      return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r}" fill="${fill}" stroke="${stroke}" stroke-width="2" />`;
     })
     .join("");
 
@@ -51,14 +59,14 @@ function buildChart(history, pr) {
   return `
     <svg viewBox="0 0 ${CHART_W} ${CHART_H}" width="100%" height="${CHART_H}" preserveAspectRatio="none" style="overflow:visible;">
       <defs>
-        <linearGradient id="areaFill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#3d7bff" stop-opacity="0.35" />
-          <stop offset="100%" stop-color="#3d7bff" stop-opacity="0" />
+        <linearGradient id="${gradientId}" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="${color}" stop-opacity="0.35" />
+          <stop offset="100%" stop-color="${color}" stop-opacity="0" />
         </linearGradient>
       </defs>
       ${gridLines}
-      <path d="${areaPath}" fill="url(#areaFill)" stroke="none" />
-      <path d="${linePath}" fill="none" stroke="#3d7bff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+      <path d="${areaPath}" fill="url(#${gradientId})" stroke="none" />
+      <path d="${linePath}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
       ${dots}
       <text x="${PAD_X}" y="${CHART_H - 4}" class="chart-axis-label">Wk ${firstWeek}</text>
       <text x="${CHART_W - PAD_X}" y="${CHART_H - 4}" text-anchor="end" class="chart-axis-label">Wk ${lastWeek}</text>
@@ -86,7 +94,7 @@ function headlineHTML(history) {
   `;
 }
 
-function prBadgeHTML(pr, exerciseDef) {
+function prBadgeHTML(pr) {
   if (!pr) return "";
   const value = pr.weight != null ? `${pr.weight} lb × ${pr.minReps}` : `${pr.minReps} reps`;
   return `
@@ -98,6 +106,30 @@ function prBadgeHTML(pr, exerciseDef) {
       </div>
     </div>
   `;
+}
+
+function findTargetRIR(exerciseId) {
+  for (const t of State.getDayTemplates()) {
+    for (const ss of t.supersets) {
+      const slot = ss.exercises.find((e) => e.exerciseId === exerciseId);
+      if (slot) return slot.targetRIR;
+    }
+  }
+  return null;
+}
+
+// Early fatigue signal: if RIR has been running consistently under target
+// across the last 3 confirmed sessions, that's worth surfacing before a
+// deload is officially due.
+function fatigueNoteHTML(history, targetRIR) {
+  const withRIR = history.filter((h) => h.rir != null);
+  if (withRIR.length < 3) return "";
+  const recent = withRIR.slice(-3);
+  const avgRecent = recent.reduce((s, h) => s + h.rir, 0) / recent.length;
+  if (targetRIR != null && avgRecent < targetRIR - 0.5) {
+    return `<div class="action-flag flag-hold">⚠️ RIR has averaged ${avgRecent.toFixed(1)} the last 3 sessions vs a target of ${targetRIR} — fatigue may be creeping in before your next deload.</div>`;
+  }
+  return "";
 }
 
 function renderExerciseView(container, initialId) {
@@ -121,6 +153,7 @@ function renderExerciseView(container, initialId) {
       return;
     }
     const pr = State.getPR(exerciseId);
+    const targetRIR = findTargetRIR(exerciseId);
 
     const rows = history
       .map(
@@ -134,11 +167,20 @@ function renderExerciseView(container, initialId) {
       )
       .join("");
 
+    const weightChart = svgLineChart(history, "weight", { color: "#3d7bff", highlightWeek: pr?.weekNumber });
+    const rirChart = svgLineChart(history, "rir", { color: "#fbbf24" });
+
     body.innerHTML = `
-      ${prBadgeHTML(pr, EXERCISES[exerciseId])}
+      ${prBadgeHTML(pr)}
       <div class="chart-card">
         ${headlineHTML(history)}
-        ${buildChart(history, pr) || '<p class="subtle" style="padding:20px 0;text-align:center;">Log two or more sessions to see a trend.</p>'}
+        ${weightChart || '<p class="subtle" style="padding:20px 0;text-align:center;">Log two or more sessions to see a trend.</p>'}
+      </div>
+      <div class="chart-card">
+        <h2 style="margin-bottom:2px;">RIR Trend</h2>
+        <p class="subtle" style="margin-bottom:10px;">Lower RIR over time (at the same prescribed effort) is an early fatigue signal.</p>
+        ${rirChart || '<p class="subtle" style="padding:10px 0;text-align:center;">Log RIR on two or more sessions to see a trend.</p>'}
+        ${fatigueNoteHTML(history, targetRIR)}
       </div>
       <div class="card" style="padding-top:4px;padding-bottom:4px;">${rows}</div>
     `;
@@ -203,6 +245,61 @@ function renderSessionsView(container) {
   });
 }
 
+// ---- consistency calendar (GitHub-style heatmap: weeks as rows of 7 days) ----
+function renderCalendarView(container) {
+  const data = State.getData();
+  const sessions = State.getCompletedSessions();
+  const trainedDates = new Set(sessions.map((s) => new Date(s.completedAt).toDateString()));
+  const skippedDates = new Set();
+  data.weeks.forEach((w) => w.days.forEach((d) => {
+    if (d.status === "skipped" && d.skippedAt) skippedDates.add(new Date(d.skippedAt).toDateString());
+  }));
+
+  const start = new Date(data.program.startDate);
+  start.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // Pad to start on a Sunday so the grid lines up into clean weeks.
+  const gridStart = new Date(start);
+  gridStart.setDate(gridStart.getDate() - gridStart.getDay());
+
+  const totalDays = Math.round((today - gridStart) / 86400000) + 1;
+  const cells = [];
+  for (let i = 0; i < totalDays; i++) {
+    const d = new Date(gridStart);
+    d.setDate(d.getDate() + i);
+    let cls = "future";
+    if (d < start) cls = "";
+    else if (trainedDates.has(d.toDateString())) cls = "trained";
+    else if (skippedDates.has(d.toDateString())) cls = "skipped";
+    else if (d <= today) cls = "";
+    cells.push(`<div class="streak-cell ${cls}" title="${d.toDateString()}"></div>`);
+  }
+
+  const totalTrained = trainedDates.size;
+  const totalSkipped = skippedDates.size;
+  const spanDays = Math.round((today - start) / 86400000) + 1;
+  const consistencyPct = spanDays > 0 ? Math.round((totalTrained / spanDays) * 100) : 0;
+
+  container.innerHTML = `
+    <div class="streak-stats">
+      <div class="stat-tile"><span class="stat-num">${totalTrained}</span><span class="stat-label">Days Trained</span></div>
+      <div class="stat-tile"><span class="stat-num">${totalSkipped}</span><span class="stat-label">Days Skipped</span></div>
+      <div class="stat-tile"><span class="stat-num">${consistencyPct}%</span><span class="stat-label">Of Span Trained</span></div>
+    </div>
+    <div class="card">
+      <h2>Consistency</h2>
+      <div class="streak-grid">${cells.join("")}</div>
+      <div class="streak-legend">
+        <span><span class="dot" style="background:var(--success);"></span> Trained</span>
+        <span><span class="dot" style="background:var(--danger);opacity:0.55;"></span> Skipped</span>
+        <span><span class="dot" style="background:var(--surface-2);"></span> Rest / not yet</span>
+      </div>
+    </div>
+  `;
+}
+
 export function render(container, { navigate }) {
   const data = State.getData();
 
@@ -218,6 +315,7 @@ export function render(container, { navigate }) {
     <div class="view-toggle">
       <button type="button" data-view="exercise" class="active">By Exercise</button>
       <button type="button" data-view="sessions">Sessions</button>
+      <button type="button" data-view="calendar">Calendar</button>
     </div>
     <div id="historyView"></div>
   `;
@@ -228,7 +326,8 @@ export function render(container, { navigate }) {
   function paint() {
     toggleBtns.forEach((b) => b.classList.toggle("active", b.dataset.view === view));
     if (view === "exercise") renderExerciseView(viewSlot, Object.keys(EXERCISES)[0]);
-    else renderSessionsView(viewSlot);
+    else if (view === "sessions") renderSessionsView(viewSlot);
+    else renderCalendarView(viewSlot);
   }
 
   toggleBtns.forEach((btn) => {

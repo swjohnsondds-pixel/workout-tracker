@@ -1,4 +1,5 @@
 import * as State from "./state.js";
+import { getUserName } from "./storage.js";
 import * as Dashboard from "./screens/dashboard.js";
 import * as ProgramSetup from "./screens/programSetup.js";
 import * as ReviewExercises from "./screens/reviewExercises.js";
@@ -7,6 +8,8 @@ import * as SessionSummary from "./screens/sessionSummary.js";
 import * as History from "./screens/history.js";
 import * as Settings from "./screens/settings.js";
 import * as Program from "./screens/program.js";
+import * as Body from "./screens/body.js";
+import * as CheckIn from "./screens/checkin.js";
 
 const app = document.getElementById("app");
 
@@ -67,6 +70,8 @@ function render() {
     ProgramSetup.render(screenEl, { navigate });
   } else if (route === "review") {
     ReviewExercises.render(screenEl, { navigate, weeks: Number(params[0]) });
+  } else if (route === "checkin") {
+    CheckIn.render(screenEl, { navigate, weekNumber: Number(params[0]), dayTemplateId: params[1] });
   } else if (route === "workout") {
     WorkoutSession.render(screenEl, { navigate, weekNumber: Number(params[0]), dayTemplateId: params[1] });
   } else if (route === "summary") {
@@ -77,6 +82,8 @@ function render() {
     Settings.render(screenEl, { navigate });
   } else if (route === "program") {
     Program.render(screenEl, { navigate });
+  } else if (route === "body") {
+    Body.render(screenEl, { navigate });
   } else {
     Dashboard.render(screenEl, { navigate });
   }
@@ -86,12 +93,27 @@ function render() {
   }
 }
 
+function showWelcomeSplash() {
+  const el = document.createElement("div");
+  el.className = "welcome-splash";
+  el.innerHTML = `
+    <div class="welcome-content">
+      <div class="welcome-icon">🏋️</div>
+      <div class="welcome-text">Hello, ${getUserName()}</div>
+    </div>
+  `;
+  document.body.appendChild(el);
+  setTimeout(() => el.classList.add("fade-out"), 900);
+  setTimeout(() => el.remove(), 1300);
+}
+
 window.addEventListener("hashchange", render);
 
 // Module scripts execute after the document has been parsed, so the DOM is
 // already available here — no need to wait for DOMContentLoaded.
 State.init();
 render();
+showWelcomeSplash();
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {

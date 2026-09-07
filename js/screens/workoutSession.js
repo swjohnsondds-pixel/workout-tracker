@@ -1,8 +1,10 @@
 import * as State from "../state.js";
-import { EXERCISES } from "../exercises.js";
+import { EXERCISES, getAlternatives } from "../exercises.js";
 import { calculateWarmups } from "../warmups.js";
 import { fetchHowTo } from "../howto.js";
-import { openModal } from "../modal.js";
+import { openModal, closeModal } from "../modal.js";
+
+const PAIN_JOINTS = ["Shoulder", "Elbow", "Wrist", "Lower Back", "Hip", "Knee", "Ankle", "Other"];
 
 const TARGET_MINUTES_MAX = 60;
 
@@ -146,6 +148,92 @@ function rirRowHTML(log, exId, exName) {
     })
     .join("");
   return `<div class="rir-row"><label>${exName} — RIR</label><div class="rir-pills">${pills}</div></div>`;
+}
+
+function painSectionHTML(exerciseId) {
+  const def = EXERCISES[exerciseId];
+  const flag = State.getActivePainFlag(exerciseId);
+  if (!flag) {
+    return `<button type="button" class="btn small secondary" data-flag-pain="${exerciseId}" style="width:auto;margin-bottom:10px;">🚩 Flag pain — ${def.name}</button>`;
+  }
+  return `
+    <div class="pain-banner">
+      <strong>⚠️ ${def.name} — ${flag.joint} pain flagged</strong>
+      ${flag.note ? `<span class="subtle">${flag.note}</span>` : ""}
+      <div class="pain-banner-actions">
+        <button type="button" class="btn small secondary" data-resolve-pain="${flag.id}">Feeling better</button>
+        <button type="button" class="btn small" data-swap-pain="${exerciseId}">Swap exercise</button>
+      </div>
+    </div>
+  `;
+}
+
+function openFlagPainModal(exerciseId, onSaved) {
+  const def = EXERCISES[exerciseId];
+  let selectedJoint = null;
+
+  const body = openModal(`
+    <h2>Flag Pain — ${def.name}</h2>
+    <p class="subtle" style="margin-bottom:12px;">This logs the flag and nudges you toward a regression or alternative next time this exercise comes up.</p>
+    <div class="joint-chip-row" id="jointChips">
+      ${PAIN_JOINTS.map((j) => `<button type="button" class="joint-chip" data-joint="${j}">${j}</button>`).join("")}
+    </div>
+    <div class="field">
+      <label for="painNote">Note (optional)</label>
+      <input type="text" id="painNote" placeholder="What did it feel like?" />
+    </div>
+    <button class="btn" id="savePainBtn" disabled>Save Flag</button>
+  `);
+
+  const saveBtn = body.querySelector("#savePainBtn");
+  body.querySelectorAll("[data-joint]").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      body.querySelectorAll("[data-joint]").forEach((c) => c.classList.remove("selected"));
+      chip.classList.add("selected");
+      selectedJoint = chip.dataset.joint;
+      saveBtn.disabled = false;
+    });
+  });
+
+  saveBtn.addEventListener("click", () => {
+    if (!selectedJoint) return;
+    State.flagPain(exerciseId, selectedJoint, body.querySelector("#painNote").value.trim());
+    closeModal();
+    onSaved();
+  });
+}
+
+function openSwapForPainModal(exerciseId, dayTemplateId, onSwapped) {
+  const template = State.getDayTemplates().find((t) => t.id === dayTemplateId);
+  const usedIds = template.supersets.flatMap((ss) => ss.exercises.map((e) => e.exerciseId));
+  const alternatives = getAlternatives(exerciseId, dayTemplateId, usedIds);
+
+  const body = openModal(`
+    <h2>Swap Exercise</h2>
+    <p class="subtle" style="margin-bottom:14px;">Replacing <strong style="color:var(--text)">${EXERCISES[exerciseId].name}</strong> going forward — same sets/reps/RIR, just a different movement that's easier on the flagged joint.</p>
+    ${
+      alternatives.length
+        ? alternatives
+            .map(
+              (id) => `
+                <button type="button" class="alt-option" data-alt-id="${id}">
+                  <div class="alt-name">${EXERCISES[id].name}</div>
+                  <div class="alt-meta">${EXERCISES[id].primary.join(", ")} · ${EXERCISES[id].equipment}</div>
+                </button>
+              `
+            )
+            .join("")
+        : `<p class="subtle">No alternatives with the same movement pattern fit this slot — talk to a coach or physio about a regression instead.</p>`
+    }
+  `);
+
+  body.querySelectorAll("[data-alt-id]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      State.swapExerciseInProgram(dayTemplateId, exerciseId, btn.dataset.altId);
+      closeModal();
+      onSwapped();
+    });
+  });
 }
 
 function youtubeSearchURL(name) {
@@ -320,13 +408,14 @@ export function render(container, { navigate, weekNumber, dayTemplateId }) {
 
     const metaLine = `${logs[0].sets} ${isPair ? "rounds" : "sets"} · ${logs[0].repMin}-${logs[0].repMax} reps · target RIR ${logs[0].targetRIR}`;
     const flagsHTML = logs.map(actionFlagHTML).join("");
+    const painHTML = ids.map(painSectionHTML).join("");
     const muscleHTML = ids.map((id, i) => muscleSectionHTML(defs[i], id, isPair)).join("");
 
     const roundsCount = logs[0].sets;
     const roundsHTML = Array.from({ length: roundsCount }, (_, r) => roundBlockHTML(unit, r, isPair)).join("");
     const rirHTML = ids.map((id, i) => rirRowHTML(logs[i], id, defs[i].name)).join("");
 
-    return `${headerHTML}<div class="exercise-meta">${metaLine}</div>${flagsHTML}${muscleHTML}${roundsHTML}${rirHTML}`;
+    return `${headerHTML}<div class="exercise-meta">${metaLine}</div>${flagsHTML}${painHTML}${muscleHTML}${roundsHTML}${rirHTML}`;
   }
 
   function roundBlockHTML(unit, r, isPair) {
@@ -390,6 +479,24 @@ export function render(container, { navigate, weekNumber, dayTemplateId }) {
         pill.classList.add("selected");
         State.logRIR(weekNumber, dayTemplateId, exId, Number(pill.dataset.rir));
       });
+    });
+
+    slot.querySelectorAll("[data-flag-pain]").forEach((btn) => {
+      btn.addEventListener("click", () => openFlagPainModal(btn.dataset.flagPain, paintUnit));
+    });
+    slot.querySelectorAll("[data-resolve-pain]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        State.resolvePainFlag(btn.dataset.resolvePain);
+        paintUnit();
+      });
+    });
+    slot.querySelectorAll("[data-swap-pain]").forEach((btn) => {
+      // Swapping changes the day template itself, not just this exercise's
+      // log — re-run the whole screen render so `units` picks up the new
+      // exerciseIds rather than trying to patch the current closure's copy.
+      btn.addEventListener("click", () =>
+        openSwapForPainModal(btn.dataset.swapPain, dayTemplateId, () => render(container, { navigate, weekNumber, dayTemplateId }))
+      );
     });
 
     function persist(exId, r, kind, rawValue) {
