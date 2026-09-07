@@ -4,23 +4,30 @@ import { calculateWarmups } from "../warmups.js";
 import { fetchHowTo } from "../howto.js";
 import { openModal } from "../modal.js";
 
-// ---- rest timer (module-level, independent of screen re-render) ----
+const TARGET_MINUTES_MAX = 60;
+
+// ---- rest timer + elapsed-time clock: module-level so the router's
+// cleanup() hook can always reach them, regardless of which render() closure
+// started them. ----
 const REST_RING_R = 22;
 const REST_CIRCUMFERENCE = 2 * Math.PI * REST_RING_R;
 let restTimer = { intervalId: null, el: null };
-
-// Called by the router when navigating away from this screen by any means
-// other than its own Back/Finish buttons (which already clean up inline) —
-// e.g. tapping a tab-bar item mid-rest — so the timer never gets orphaned
-// floating over a different screen.
-export function cleanup() {
-  clearRestTimer();
-}
+let elapsedIntervalId = null;
 
 function clearRestTimer() {
   if (restTimer.intervalId) clearInterval(restTimer.intervalId);
   if (restTimer.el) restTimer.el.remove();
   restTimer = { intervalId: null, el: null };
+}
+
+function clearElapsedTimer() {
+  if (elapsedIntervalId) clearInterval(elapsedIntervalId);
+  elapsedIntervalId = null;
+}
+
+export function cleanup() {
+  clearRestTimer();
+  clearElapsedTimer();
 }
 
 function startRestTimer(seconds, label) {
@@ -69,29 +76,21 @@ function startRestTimer(seconds, label) {
   el.querySelector(".skip-btn").addEventListener("click", clearRestTimer);
 }
 
-// ---- helpers ----
-function referenceWeight(log) {
-  if (log.prescribedWeight != null) return log.prescribedWeight;
-  const first = log.workingSets[0];
-  return first && first.weight != null ? first.weight : null;
-}
+// ---- pure markup helpers (no closure over session state) ----
 
-function warmupText(exerciseDef, log) {
-  const ref = referenceWeight(log);
-  const warmups = calculateWarmups(exerciseDef, ref);
+function warmupText(exerciseDef, referenceWeight) {
+  const warmups = calculateWarmups(exerciseDef, referenceWeight);
   if (warmups.length === 0) return "";
   return warmups.map((w) => `<span>${w.weight} lb × ${w.reps}</span>`).join("");
 }
 
 function prescriptionText(log, weekNumber) {
-  if (weekNumber === 1) return "Baseline week — log whatever weight/reps you hit.";
-  if (log.prescribedWeight != null) return `Prescribed: ${log.prescribedWeight} lb × ${log.targetReps} reps`;
+  if (weekNumber === 1) return "Baseline — log whatever you hit.";
+  if (log.prescribedWeight != null) return `Prescribed: ${log.prescribedWeight} lb × ${log.targetReps}`;
   if (log.targetReps != null) return `Prescribed: ${log.targetReps} reps (bodyweight)`;
   return "Log what you hit.";
 }
 
-// Only flag the cases worth a decision point — plain "add a rep this week"
-// is the expected default and doesn't need its own badge every session.
 const ACTION_FLAGS = {
   increase_weight: { label: "🔺 Weight up — reps maxed last week", cls: "flag-up" },
   hold: { label: "⏸ Holding — RIR was low last week", cls: "flag-hold" },
@@ -107,81 +106,45 @@ function chipsHTML(list) {
   return list.map((m) => `<span class="chip">${m}</span>`).join("");
 }
 
-function muscleSectionHTML(exerciseDef) {
+function muscleSectionHTML(def, id, isPair) {
+  const label = isPair ? `${def.name} muscles` : "Muscles worked";
   return `
-    <button type="button" class="muscle-toggle" data-muscle-toggle>Muscles worked ▾</button>
-    <div class="muscle-panel" hidden data-muscle-panel>
-      <div class="muscle-group"><span class="muscle-label">Primary</span>${chipsHTML(exerciseDef.primary)}</div>
-      ${exerciseDef.secondary.length ? `<div class="muscle-group"><span class="muscle-label">Secondary</span>${chipsHTML(exerciseDef.secondary)}</div>` : ""}
+    <button type="button" class="muscle-toggle" data-muscle-toggle="${id}">${label} ▾</button>
+    <div class="muscle-panel" hidden data-muscle-panel="${id}">
+      <div class="muscle-group"><span class="muscle-label">Primary</span>${chipsHTML(def.primary)}</div>
+      ${def.secondary.length ? `<div class="muscle-group"><span class="muscle-label">Secondary</span>${chipsHTML(def.secondary)}</div>` : ""}
     </div>
   `;
 }
 
-function isSetDone(set) {
-  return !!set.done;
-}
-function isExerciseComplete(log) {
-  return log.workingSets.length > 0 && log.workingSets.every(isSetDone);
-}
-
-function doneLineHTML(exerciseDef, set) {
-  const values = exerciseDef.equipment === "bodyweight" ? `${set.reps ?? "?"} reps` : `${set.weight ?? "?"} lb × ${set.reps ?? "?"}`;
-  return `<span class="check-icon">✓</span> Set ${set.setNumber} <span class="set-values">${values}</span>`;
+function doneLineInner(exerciseDef, set) {
+  const values =
+    exerciseDef.equipment === "bodyweight" ? `${set.reps ?? "?"} reps` : `${set.weight ?? "?"} lb × ${set.reps ?? "?"}`;
+  return `<span class="check-icon">✓</span><span class="set-values">${values}</span>`;
 }
 
-function setRowHTML(log, exerciseDef, i) {
-  const set = log.workingSets[i];
-  const isBodyweight = exerciseDef.equipment === "bodyweight";
-  const cols = isBodyweight ? "26px 1fr 44px" : "26px 1fr 1fr 44px";
-
-  const weightField = isBodyweight
-    ? ""
-    : `<input type="number" inputmode="decimal" class="set-weight" data-set="${i}" placeholder="${log.prescribedWeight ?? "lb"}" value="${set.weight ?? ""}" />`;
-
+function stepperFieldHTML(label, kind, exId, r, value, placeholder) {
   return `
-    <div class="set-row-wrapper" data-set-wrapper="${i}">
-      <div class="set-row" data-set-row style="grid-template-columns:${cols}" ${set.done ? "hidden" : ""}>
-        <div class="set-label">${i + 1}</div>
-        ${weightField}
-        <input type="number" inputmode="numeric" class="set-reps" data-set="${i}" placeholder="${log.targetReps ?? log.repMax}" value="${set.reps ?? ""}" />
-        <button type="button" class="set-check" data-set="${i}" aria-label="Mark set done">✓</button>
+    <div class="stepper-field">
+      <span class="stepper-label">${label}</span>
+      <div class="stepper-row">
+        <button type="button" class="step-btn" data-step="-1" data-kind="${kind}" data-ex="${exId}" data-round="${r}">−</button>
+        <input type="number" inputmode="${kind === "weight" ? "decimal" : "numeric"}" class="field-input" data-kind="${kind}" data-ex="${exId}" data-round="${r}" value="${value ?? ""}" placeholder="${placeholder ?? ""}" />
+        <button type="button" class="step-btn" data-step="1" data-kind="${kind}" data-ex="${exId}" data-round="${r}">+</button>
       </div>
-      <button type="button" class="set-done-line" data-set-reopen="${i}" ${set.done ? "" : "hidden"}>
-        ${doneLineHTML(exerciseDef, set)}
-      </button>
     </div>
   `;
 }
 
-function exerciseCardHTML(log, weekNumber) {
-  const exerciseDef = EXERCISES[log.exerciseId];
-  const setsHTML = log.workingSets.map((_, i) => setRowHTML(log, exerciseDef, i)).join("");
-
-  const rirOptions = [0, 1, 2, 3, "4+"];
-  const rirPillsHTML = rirOptions
+function rirRowHTML(log, exId, exName) {
+  const options = [0, 1, 2, 3, "4+"];
+  const pills = options
     .map((r) => {
       const val = r === "4+" ? 4 : r;
-      const selected = log.rir === val ? "selected" : "";
-      return `<button type="button" class="rir-pill ${selected}" data-rir="${val}">${r}</button>`;
+      return `<button type="button" class="rir-pill ${log.rir === val ? "selected" : ""}" data-rir-ex="${exId}" data-rir="${val}">${r}</button>`;
     })
     .join("");
-
-  return `
-    <div class="exercise-card" data-exercise-id="${log.exerciseId}">
-      <span class="card-status-badge" data-status-badge></span>
-      <button type="button" class="exercise-name-btn" data-howto>${exerciseDef.name} <span class="info-icon">ⓘ How-to</span></button>
-      <div class="exercise-meta">${log.sets} sets · ${log.repMin}-${log.repMax} reps · target RIR ${log.targetRIR}</div>
-      <div class="progress-note">${prescriptionText(log, weekNumber)}</div>
-      ${actionFlagHTML(log)}
-      <div class="warmup-row" data-warmup-row>${warmupText(exerciseDef, log)}</div>
-      ${muscleSectionHTML(exerciseDef)}
-      ${setsHTML}
-      <div class="rir-row">
-        <label>RIR (last set)</label>
-        <div class="rir-pills">${rirPillsHTML}</div>
-      </div>
-    </div>
-  `;
+  return `<div class="rir-row"><label>${exName} — RIR</label><div class="rir-pills">${pills}</div></div>`;
 }
 
 async function openHowTo(exerciseDef) {
@@ -190,222 +153,340 @@ async function openHowTo(exerciseDef) {
     <div class="modal-cue">${exerciseDef.cue}</div>
     <div class="modal-media-slot"><div class="modal-loading"><span class="spinner"></span>Loading demonstration…</div></div>
   `);
-
   const howto = await fetchHowTo(exerciseDef.wgerId);
   const slot = body.isConnected ? body.querySelector(".modal-media-slot") : null;
   if (!slot) return;
-
   if (!howto || (!howto.video && !howto.image && !howto.description)) {
     slot.remove();
     return;
   }
-
   let mediaHTML = "";
-  if (howto.video) {
-    mediaHTML = `<video src="${howto.video}" controls playsinline muted></video>`;
-  } else if (howto.image) {
-    mediaHTML = `<img src="${howto.image}" alt="${exerciseDef.name} demonstration" />`;
-  }
+  if (howto.video) mediaHTML = `<video src="${howto.video}" controls playsinline muted></video>`;
+  else if (howto.image) mediaHTML = `<img src="${howto.image}" alt="${exerciseDef.name} demonstration" />`;
   const descHTML = howto.description ? `<div class="modal-description">${howto.description}</div>` : "";
   slot.innerHTML = mediaHTML + descHTML;
 }
 
+// ================= main screen =================
+
 export function render(container, { navigate, weekNumber, dayTemplateId }) {
-  clearRestTimer();
+  cleanup();
 
   const day = State.startDay(weekNumber, dayTemplateId);
   const template = State.getDayTemplates().find((t) => t.id === dayTemplateId);
   const week = State.getWeek(weekNumber);
+  const program = State.getData().program;
 
-  const supersetsHTML = template.supersets
-    .map((ss) => {
-      const cards = ss.exercises
-        .map((slot) => {
-          const log = day.exerciseLogs.find((l) => l.exerciseId === slot.exerciseId);
-          return exerciseCardHTML(log, weekNumber);
-        })
-        .join("");
-      return `<div class="superset-block" data-superset="${ss.id}">${cards}</div>`;
-    })
-    .join("");
+  // One "unit" = one superset (1 or 2 exercises). This is the thing the user
+  // focuses on at a time.
+  const units = template.supersets.map((ss) => ({
+    id: ss.id,
+    exerciseIds: ss.exercises.map((s) => s.exerciseId),
+  }));
+
+  const findLog = (exId) => day.exerciseLogs.find((l) => l.exerciseId === exId);
+  const isUnitComplete = (unit) => unit.exerciseIds.every((id) => findLog(id).workingSets.every((s) => s.done));
+
+  let currentIndex = units.findIndex((u) => !isUnitComplete(u));
+  if (currentIndex === -1) currentIndex = units.length - 1;
 
   container.innerHTML = `
     <div class="session-header">
       <div class="top-bar">
         <button class="back" id="backBtn">‹ Back</button>
+        <button class="btn ghost" id="finishLink" style="width:auto;">Finish</button>
       </div>
       <h1>${template.label}</h1>
-      <p class="subtle">Week ${weekNumber} of ${State.getData().program.totalWeeks}${week.isDeload ? " · Deload week" : ""}</p>
+      <p class="subtle">Week ${weekNumber} of ${program.totalWeeks}${week.isDeload ? " · Deload week" : ""}</p>
       <div class="session-progress-row">
-        <div class="progress-bar-track"><div class="progress-bar-fill" id="sessionProgressFill" style="width:0%"></div></div>
-        <span class="progress-count" id="sessionProgressCount"></span>
+        <span class="unit-counter" id="unitCounter"></span>
+        <span class="elapsed-time" id="elapsedTime"></span>
       </div>
+      <div class="progress-bar-track"><div class="progress-bar-fill" id="sessionProgressFill" style="width:0%"></div></div>
+      <p class="progress-count" id="sessionProgressCount"></p>
     </div>
-    ${supersetsHTML}
-    <button class="btn" id="finishBtn">Finish Workout</button>
+    <div id="unitCardSlot"></div>
+    <div class="unit-nav">
+      <button type="button" id="prevBtn">‹ Prev</button>
+      <button type="button" id="nextBtn">Next ›</button>
+    </div>
   `;
 
   container.querySelector("#backBtn").addEventListener("click", () => {
-    clearRestTimer();
+    cleanup();
     navigate("dashboard");
   });
-
-  // ---- flat exercise order, used to compute current/upcoming/complete ----
-  const orderedIds = [];
-  template.supersets.forEach((ss) => ss.exercises.forEach((slot) => orderedIds.push(slot.exerciseId)));
-
-  function refreshCardStates() {
-    let currentIndex = orderedIds.findIndex((id) => {
-      const log = day.exerciseLogs.find((l) => l.exerciseId === id);
-      return !isExerciseComplete(log);
-    });
-    if (currentIndex === -1) currentIndex = orderedIds.length; // everything complete
-
-    orderedIds.forEach((id, i) => {
-      const card = container.querySelector(`.exercise-card[data-exercise-id="${id}"]`);
-      if (!card) return;
-      const badge = card.querySelector("[data-status-badge]");
-      card.classList.remove("state-current", "state-upcoming", "state-complete");
-      if (i < currentIndex) {
-        card.classList.add("state-complete");
-        badge.textContent = "Done";
-        badge.className = "card-status-badge complete";
-      } else if (i === currentIndex) {
-        card.classList.add("state-current");
-        badge.textContent = "In Progress";
-        badge.className = "card-status-badge current";
-      } else {
-        card.classList.add("state-upcoming");
-        badge.textContent = "";
-        badge.className = "card-status-badge";
-      }
-    });
-
-    template.supersets.forEach((ss) => {
-      const block = container.querySelector(`[data-superset="${ss.id}"]`);
-      const ids = ss.exercises.map((s) => s.exerciseId);
-      const logs = ids.map((id) => day.exerciseLogs.find((l) => l.exerciseId === id));
-      const allDone = logs.every(isExerciseComplete);
-      const anyCurrent = ids.some((id) => orderedIds.indexOf(id) === currentIndex);
-      block.classList.toggle("complete", allDone);
-      block.classList.toggle("active", !allDone && anyCurrent);
-    });
-
-    const totalSets = day.exerciseLogs.reduce((sum, l) => sum + l.workingSets.length, 0);
-    const doneSets = day.exerciseLogs.reduce((sum, l) => sum + l.workingSets.filter(isSetDone).length, 0);
-    container.querySelector("#sessionProgressFill").style.width = `${totalSets ? (doneSets / totalSets) * 100 : 0}%`;
-    container.querySelector("#sessionProgressCount").textContent = `${doneSets}/${totalSets} sets`;
-  }
-
-  container.querySelectorAll(".exercise-card").forEach((card) => {
-    const exerciseId = card.dataset.exerciseId;
-    const log = day.exerciseLogs.find((l) => l.exerciseId === exerciseId);
-    const exerciseDef = EXERCISES[exerciseId];
-
-    card.querySelector("[data-howto]").addEventListener("click", () => openHowTo(exerciseDef));
-
-    const muscleToggle = card.querySelector("[data-muscle-toggle]");
-    const musclePanel = card.querySelector("[data-muscle-panel]");
-    muscleToggle.addEventListener("click", () => {
-      const hidden = musclePanel.hidden;
-      musclePanel.hidden = !hidden;
-      muscleToggle.textContent = hidden ? "Muscles worked ▴" : "Muscles worked ▾";
-    });
-
-    function persistAndMaybeRewarm(setIndex) {
-      const weightInput = card.querySelector(`.set-weight[data-set="${setIndex}"]`);
-      const repsInput = card.querySelector(`.set-reps[data-set="${setIndex}"]`);
-      const weight = weightInput ? parseFloat(weightInput.value) : null;
-      const reps = repsInput ? parseInt(repsInput.value, 10) : null;
-      State.logWorkingSet(
-        weekNumber,
-        dayTemplateId,
-        exerciseId,
-        setIndex,
-        Number.isFinite(weight) ? weight : null,
-        Number.isFinite(reps) ? reps : null
-      );
-      log.workingSets[setIndex].weight = Number.isFinite(weight) ? weight : null;
-      log.workingSets[setIndex].reps = Number.isFinite(reps) ? reps : null;
-      if (setIndex === 0) {
-        const warmupRow = card.querySelector("[data-warmup-row]");
-        const warmups = calculateWarmups(exerciseDef, referenceWeight(log));
-        warmupRow.innerHTML = warmups.map((w) => `<span>${w.weight} lb × ${w.reps}</span>`).join("");
-        State.setWarmups(weekNumber, dayTemplateId, exerciseId, warmups);
-      }
-    }
-
-    card.querySelectorAll(".set-weight").forEach((input) => {
-      input.addEventListener("input", () => persistAndMaybeRewarm(Number(input.dataset.set)));
-    });
-    card.querySelectorAll(".set-reps").forEach((input) => {
-      input.addEventListener("input", () => persistAndMaybeRewarm(Number(input.dataset.set)));
-    });
-    card.querySelectorAll(".rir-pill").forEach((pill) => {
-      pill.addEventListener("click", () => {
-        card.querySelectorAll(".rir-pill").forEach((p) => p.classList.remove("selected"));
-        pill.classList.add("selected");
-        State.logRIR(weekNumber, dayTemplateId, exerciseId, Number(pill.dataset.rir));
-      });
-    });
-
-    card.querySelectorAll("[data-set-wrapper]").forEach((wrapper) => {
-      const i = Number(wrapper.dataset.setWrapper);
-      const setRow = wrapper.querySelector(".set-row");
-      const doneLine = wrapper.querySelector(".set-done-line");
-      const checkBtn = wrapper.querySelector(".set-check");
-
-      checkBtn.addEventListener("click", () => {
-        State.markSetDone(weekNumber, dayTemplateId, exerciseId, i, true);
-        log.workingSets[i].done = true;
-
-        checkBtn.classList.add("firing");
-
-        const ring = document.createElement("span");
-        ring.className = "burst-ring";
-        wrapper.appendChild(ring);
-        setTimeout(() => ring.remove(), 550);
-
-        const burst = document.createElement("span");
-        burst.className = "checkmark-burst";
-        burst.textContent = "✓";
-        wrapper.appendChild(burst);
-        setTimeout(() => burst.remove(), 650);
-
-        refreshCardStates();
-        startRestTimer(exerciseDef.isCompound ? 90 : 60, exerciseDef.name);
-
-        setTimeout(() => {
-          setRow.classList.add("collapsing");
-          setTimeout(() => {
-            setRow.hidden = true;
-            doneLine.innerHTML = doneLineHTML(exerciseDef, log.workingSets[i]);
-            doneLine.hidden = false;
-          }, 340);
-        }, 150);
-      });
-
-      doneLine.addEventListener("click", () => {
-        State.markSetDone(weekNumber, dayTemplateId, exerciseId, i, false);
-        log.workingSets[i].done = false;
-        doneLine.hidden = true;
-        setRow.hidden = false;
-        setRow.classList.remove("collapsing");
-        checkBtn.classList.remove("firing");
-        refreshCardStates();
-      });
-    });
+  container.querySelector("#finishLink").addEventListener("click", () => attemptFinish());
+  container.querySelector("#prevBtn").addEventListener("click", () => goToUnit(currentIndex - 1));
+  container.querySelector("#nextBtn").addEventListener("click", () => {
+    if (currentIndex === units.length - 1) attemptFinish();
+    else goToUnit(currentIndex + 1);
   });
 
-  refreshCardStates();
-
-  container.querySelector("#finishBtn").addEventListener("click", () => {
-    clearRestTimer();
+  function attemptFinish() {
     const anyEmpty = day.exerciseLogs.some((l) => l.workingSets.every((s) => !s.done));
-    if (anyEmpty && !confirm("Some exercises have no confirmed sets. Finish workout anyway?")) {
-      return;
-    }
+    if (anyEmpty && !confirm("Some exercises have no confirmed sets. Finish workout anyway?")) return;
+    cleanup();
     State.finishDay(weekNumber, dayTemplateId);
     navigate(`summary/${weekNumber}/${dayTemplateId}`);
-  });
+  }
+
+  function updateHeaderProgress() {
+    container.querySelector("#unitCounter").textContent = `Exercise ${currentIndex + 1} of ${units.length}`;
+    const totalSets = day.exerciseLogs.reduce((sum, l) => sum + l.workingSets.length, 0);
+    const doneSets = day.exerciseLogs.reduce((sum, l) => sum + l.workingSets.filter((s) => s.done).length, 0);
+    container.querySelector("#sessionProgressFill").style.width = `${totalSets ? (doneSets / totalSets) * 100 : 0}%`;
+    container.querySelector("#sessionProgressCount").textContent = `${doneSets} of ${totalSets} sets total`;
+  }
+
+  function updateNavButtons() {
+    const prevBtn = container.querySelector("#prevBtn");
+    const nextBtn = container.querySelector("#nextBtn");
+    prevBtn.disabled = currentIndex === 0;
+    const isLast = currentIndex === units.length - 1;
+    nextBtn.className = "";
+    if (isLast) {
+      nextBtn.textContent = "Finish Workout ✓";
+      nextBtn.classList.add("finish-primary");
+    } else {
+      nextBtn.textContent = "Next ›";
+      if (isUnitComplete(units[currentIndex])) nextBtn.classList.add("next-primary");
+    }
+  }
+
+  function goToUnit(index) {
+    currentIndex = Math.max(0, Math.min(units.length - 1, index));
+    paintUnit();
+  }
+
+  function unitCardHTML(unit) {
+    const ids = unit.exerciseIds;
+    const logs = ids.map(findLog);
+    const defs = ids.map((id) => EXERCISES[id]);
+    const isPair = ids.length === 2;
+
+    const headerHTML = isPair
+      ? `<div class="pair-header">
+           <button type="button" class="exercise-name-btn" data-howto="${ids[0]}">${defs[0].name}</button>
+           <span class="pair-plus">+</span>
+           <button type="button" class="exercise-name-btn" data-howto="${ids[1]}">${defs[1].name}</button>
+         </div>`
+      : `<button type="button" class="exercise-name-btn" data-howto="${ids[0]}">${defs[0].name} <span class="info-icon">ⓘ How-to</span></button>`;
+
+    const metaLine = `${logs[0].sets} ${isPair ? "rounds" : "sets"} · ${logs[0].repMin}-${logs[0].repMax} reps · target RIR ${logs[0].targetRIR}`;
+    const flagsHTML = logs.map(actionFlagHTML).join("");
+    const muscleHTML = ids.map((id, i) => muscleSectionHTML(defs[i], id, isPair)).join("");
+
+    const roundsCount = logs[0].sets;
+    const roundsHTML = Array.from({ length: roundsCount }, (_, r) => roundBlockHTML(unit, r, isPair)).join("");
+    const rirHTML = ids.map((id, i) => rirRowHTML(logs[i], id, defs[i].name)).join("");
+
+    return `${headerHTML}<div class="exercise-meta">${metaLine}</div>${flagsHTML}${muscleHTML}${roundsHTML}${rirHTML}`;
+  }
+
+  function roundBlockHTML(unit, r, isPair) {
+    const isFirstRound = r === 0;
+    const exercisesHTML = unit.exerciseIds
+      .map((id) => {
+        const def = EXERCISES[id];
+        const log = findLog(id);
+        const set = log.workingSets[r];
+        const isBW = def.equipment === "bodyweight";
+        const refWeight = log.prescribedWeight != null ? log.prescribedWeight : set.weight;
+        const warmup = isFirstRound && def.isCompound ? warmupText(def, refWeight) : "";
+
+        return `
+          <div class="round-exercise" data-ex="${id}" data-round="${r}">
+            ${isPair ? `<div class="round-exercise-name">${def.name}</div>` : ""}
+            ${isFirstRound ? `<div class="progress-note">${prescriptionText(log, weekNumber)}</div>` : ""}
+            ${isFirstRound ? `<div class="warmup-row" data-warmup-for="${id}">${warmup}</div>` : ""}
+            <div class="set-controls" ${set.done ? "hidden" : ""}>
+              ${isBW ? "" : stepperFieldHTML("Weight (lb)", "weight", id, r, set.weight, log.prescribedWeight)}
+              ${stepperFieldHTML("Reps", "reps", id, r, set.reps, log.targetReps ?? log.repMax)}
+              <button type="button" class="mark-complete-btn" data-complete data-ex="${id}" data-round="${r}">Mark Complete</button>
+            </div>
+            <button type="button" class="done-line" data-reopen data-ex="${id}" data-round="${r}" ${set.done ? "" : "hidden"}>
+              ${doneLineInner(def, set)}
+            </button>
+          </div>
+        `;
+      })
+      .join("");
+
+    return `
+      <div class="round-block" data-round-block="${r}">
+        <div class="round-label">${isPair ? "Round" : "Set"} ${r + 1} of ${findLog(unit.exerciseIds[0]).sets}</div>
+        ${exercisesHTML}
+      </div>
+    `;
+  }
+
+  function wireUnitCard(slot, unit) {
+    const isPair = unit.exerciseIds.length === 2;
+
+    slot.querySelectorAll("[data-howto]").forEach((btn) => {
+      btn.addEventListener("click", () => openHowTo(EXERCISES[btn.dataset.howto]));
+    });
+
+    slot.querySelectorAll("[data-muscle-toggle]").forEach((btn) => {
+      const id = btn.dataset.muscleToggle;
+      const panel = slot.querySelector(`[data-muscle-panel="${id}"]`);
+      btn.addEventListener("click", () => {
+        const wasHidden = panel.hidden;
+        panel.hidden = !wasHidden;
+        btn.textContent = btn.textContent.replace(wasHidden ? "▾" : "▴", wasHidden ? "▴" : "▾");
+      });
+    });
+
+    slot.querySelectorAll("[data-rir-ex]").forEach((pill) => {
+      pill.addEventListener("click", () => {
+        const exId = pill.dataset.rirEx;
+        slot.querySelectorAll(`[data-rir-ex="${exId}"]`).forEach((p) => p.classList.remove("selected"));
+        pill.classList.add("selected");
+        State.logRIR(weekNumber, dayTemplateId, exId, Number(pill.dataset.rir));
+      });
+    });
+
+    function persist(exId, r, kind, rawValue) {
+      const log = findLog(exId);
+      const set = log.workingSets[r];
+      if (kind === "weight") {
+        const w = parseFloat(rawValue);
+        set.weight = Number.isFinite(w) ? w : null;
+      } else {
+        const rp = parseInt(rawValue, 10);
+        set.reps = Number.isFinite(rp) ? rp : null;
+      }
+      State.logWorkingSet(weekNumber, dayTemplateId, exId, r, set.weight, set.reps);
+
+      if (r === 0 && kind === "weight" && log.prescribedWeight == null) {
+        const def = EXERCISES[exId];
+        const warmupEl = slot.querySelector(`[data-warmup-for="${exId}"]`);
+        if (warmupEl && def.isCompound) {
+          warmupEl.innerHTML = warmupText(def, set.weight);
+        }
+      }
+    }
+
+    slot.querySelectorAll(".field-input").forEach((input) => {
+      input.addEventListener("input", () =>
+        persist(input.dataset.ex, Number(input.dataset.round), input.dataset.kind, input.value)
+      );
+    });
+
+    slot.querySelectorAll(".step-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const exId = btn.dataset.ex;
+        const r = Number(btn.dataset.round);
+        const kind = btn.dataset.kind;
+        const input = slot.querySelector(`.field-input[data-ex="${exId}"][data-round="${r}"][data-kind="${kind}"]`);
+        const step = Number(btn.dataset.step);
+        const current = parseFloat(input.value) || 0;
+        const increment = kind === "weight" ? 5 : 1;
+        const next = Math.max(0, current + step * increment);
+        input.value = kind === "weight" ? next : Math.round(next);
+        persist(exId, r, kind, input.value);
+      });
+    });
+
+    slot.querySelectorAll("[data-complete]").forEach((btn) => {
+      btn.addEventListener("click", () => handleComplete(btn.dataset.ex, Number(btn.dataset.round)));
+    });
+    slot.querySelectorAll("[data-reopen]").forEach((btn) => {
+      btn.addEventListener("click", () => handleReopen(btn.dataset.ex, Number(btn.dataset.round)));
+    });
+
+    function handleComplete(exId, r) {
+      State.markSetDone(weekNumber, dayTemplateId, exId, r, true);
+      const log = findLog(exId);
+      log.workingSets[r].done = true;
+
+      const roundExerciseEl = slot.querySelector(`.round-exercise[data-ex="${exId}"][data-round="${r}"]`);
+      const controls = roundExerciseEl.querySelector(".set-controls");
+      const doneLine = roundExerciseEl.querySelector(".done-line");
+      const completeBtn = roundExerciseEl.querySelector("[data-complete]");
+      const def = EXERCISES[exId];
+
+      completeBtn.classList.add("firing");
+      const ring = document.createElement("span");
+      ring.className = "burst-ring";
+      roundExerciseEl.appendChild(ring);
+      setTimeout(() => ring.remove(), 550);
+
+      const burst = document.createElement("span");
+      burst.className = "checkmark-burst";
+      burst.textContent = "✓";
+      roundExerciseEl.appendChild(burst);
+      setTimeout(() => burst.remove(), 650);
+
+      setTimeout(() => {
+        controls.hidden = true;
+        doneLine.innerHTML = doneLineInner(def, log.workingSets[r]);
+        doneLine.hidden = false;
+      }, 260);
+
+      const roundComplete = unit.exerciseIds.every((id) => findLog(id).workingSets[r].done);
+      if (roundComplete) {
+        const anyCompound = unit.exerciseIds.some((id) => EXERCISES[id].isCompound);
+        const label = unit.exerciseIds.map((id) => EXERCISES[id].name).join(" + ");
+        startRestTimer(anyCompound ? 90 : 60, label);
+
+        const roundBlock = slot.querySelector(`.round-block[data-round-block="${r}"]`);
+        setTimeout(() => roundBlock.classList.add("collapsing"), 300);
+
+        if (isUnitComplete(unit)) {
+          setTimeout(() => {
+            if (currentIndex < units.length - 1) goToUnit(currentIndex + 1);
+            else updateNavButtons();
+          }, 550);
+        }
+      }
+      updateHeaderProgress();
+      updateNavButtons();
+    }
+
+    function handleReopen(exId, r) {
+      State.markSetDone(weekNumber, dayTemplateId, exId, r, false);
+      findLog(exId).workingSets[r].done = false;
+
+      const roundExerciseEl = slot.querySelector(`.round-exercise[data-ex="${exId}"][data-round="${r}"]`);
+      roundExerciseEl.querySelector(".set-controls").hidden = false;
+      roundExerciseEl.querySelector(".done-line").hidden = true;
+      roundExerciseEl.querySelector("[data-complete]").classList.remove("firing");
+
+      const roundBlock = slot.querySelector(`.round-block[data-round-block="${r}"]`);
+      roundBlock.classList.remove("collapsing");
+
+      updateHeaderProgress();
+      updateNavButtons();
+    }
+  }
+
+  function paintUnit() {
+    const slot = container.querySelector("#unitCardSlot");
+    const unit = units[currentIndex];
+    slot.innerHTML = `<div class="unit-card">${unitCardHTML(unit)}</div>`;
+    wireUnitCard(slot.querySelector(".unit-card"), unit);
+    updateHeaderProgress();
+    updateNavButtons();
+  }
+
+  function startElapsedTimer() {
+    function tick() {
+      const el = container.querySelector("#elapsedTime");
+      if (!el || !el.isConnected) {
+        clearElapsedTimer();
+        return;
+      }
+      const startedAt = day.startedAt ? new Date(day.startedAt).getTime() : Date.now();
+      const mins = Math.max(0, Math.round((Date.now() - startedAt) / 60000));
+      el.textContent = `${mins} min elapsed`;
+      el.classList.toggle("over-target", mins > TARGET_MINUTES_MAX);
+    }
+    tick();
+    elapsedIntervalId = setInterval(tick, 15000);
+  }
+
+  paintUnit();
+  startElapsedTimer();
 }

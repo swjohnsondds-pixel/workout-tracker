@@ -162,6 +162,7 @@ export function startDay(weekNumber, dayTemplateId) {
     }
     day.exerciseLogs = logs;
   }
+  if (!day.startedAt) day.startedAt = new Date().toISOString();
   day.status = "in_progress";
   saveData(data);
   return day;
