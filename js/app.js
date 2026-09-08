@@ -119,32 +119,50 @@ function render() {
   }, EXIT_MS);
 }
 
-// Auto-dismisses after ~1.3s either way — the pill button just lets an
-// impatient tap skip straight to the Dashboard instead of waiting it out.
-function showWelcomeSplash() {
+// Runs once per app open, before anything else is on screen: a blank dark
+// screen, a typewriter greeting, then a Start button that's the ONLY way
+// forward — no timeout, no tap-anywhere fallback. onDone (building the
+// real Dashboard underneath) only fires once Start is actually pressed.
+function showOpeningSequence(onDone) {
   const el = document.createElement("div");
-  el.className = "welcome-splash";
+  el.className = "opening-sequence";
   el.innerHTML = `
-    <div class="welcome-photos">
-      <div class="welcome-photo" style="background-image:url('images/dumbbell-rack.jpg')"></div>
-      <div class="welcome-photo main" style="background-image:url('images/workout-moody.jpg')"></div>
-      <div class="welcome-photo" style="background-image:url('images/dumbbells-row.jpg')"></div>
+    <div class="opening-text-wrap">
+      <span class="opening-text"></span><span class="opening-cursor"></span>
     </div>
-    <div class="welcome-content">
-      <div class="welcome-label">Iron &amp; Steven</div>
-      <div class="welcome-text">Build Your<br />Best Body</div>
-      <button type="button" class="welcome-cta">Hello, ${getUserName()}</button>
-      <div class="welcome-home-indicator"></div>
-    </div>
+    <button type="button" class="btn opening-start-btn">Start</button>
   `;
   document.body.appendChild(el);
-  const dismiss = () => {
-    if (el.classList.contains("fade-out")) return;
-    el.classList.add("fade-out");
-    setTimeout(() => el.remove(), 350);
-  };
-  el.querySelector(".welcome-cta").addEventListener("click", dismiss);
-  setTimeout(dismiss, 900);
+
+  const textEl = el.querySelector(".opening-text");
+  const cursorEl = el.querySelector(".opening-cursor");
+  const startBtn = el.querySelector(".opening-start-btn");
+
+  const fullText = `Hello ${getUserName()}`;
+  let i = 0;
+  function typeNext() {
+    i++;
+    textEl.textContent = fullText.slice(0, i);
+    if (i < fullText.length) {
+      setTimeout(typeNext, 65);
+    } else {
+      setTimeout(() => {
+        cursorEl.classList.add("fade-out");
+        requestAnimationFrame(() => startBtn.classList.add("in"));
+      }, 500);
+    }
+  }
+  setTimeout(typeNext, 400); // a beat of true blankness before typing starts
+
+  startBtn.addEventListener("click", () => {
+    if (startBtn.classList.contains("pressed")) return; // ignore a double-tap mid-transition
+    startBtn.classList.add("pressed");
+    setTimeout(() => {
+      el.classList.add("fade-out");
+      onDone();
+      setTimeout(() => el.remove(), 320);
+    }, 220);
+  });
 }
 
 window.addEventListener("hashchange", render);
@@ -154,11 +172,14 @@ window.addEventListener("hashchange", render);
 document.documentElement.dataset.theme = getTheme();
 
 // Module scripts execute after the document has been parsed, so the DOM is
-// already available here — no need to wait for DOMContentLoaded.
+// already available here — no need to wait for DOMContentLoaded. #app stays
+// empty (truly blank, per the opening sequence's own dark background) until
+// Start is pressed — the real screen isn't built until then.
 State.init();
-renderRoute();
-showWelcomeSplash();
-if (State.hasActiveProgram()) maybeShowTrainingReminder();
+showOpeningSequence(() => {
+  renderRoute();
+  if (State.hasActiveProgram()) maybeShowTrainingReminder();
+});
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {

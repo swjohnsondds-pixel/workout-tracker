@@ -1700,105 +1700,64 @@ select#historyExercisePicker:focus {
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* ============================================================
-   WELCOME SPLASH (app-open greeting, ~1.3s total)
+   OPENING SEQUENCE (once per app open)
+   Blank dark screen -> typewriter greeting -> gated Start button -> fades
+   away to reveal the Dashboard, which plays its own normal .screen
+   entrance underneath (see screenIn below) rather than inventing a
+   separate transition.
    ============================================================ */
-.welcome-splash {
+.opening-sequence {
   position: fixed;
   inset: 0;
   z-index: 3000;
-  background: #0f0f10;
+  background: var(--bg);
   display: flex;
   flex-direction: column;
-  animation: splashIn 0.3s var(--ease-out);
-  overflow: hidden;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  transition: opacity 0.32s var(--ease-standard);
 }
-.welcome-splash.fade-out {
-  animation: splashOut 0.3s var(--ease-standard) forwards;
-}
-.welcome-photos {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  gap: 6px;
-  padding: 0 6px;
-}
-.welcome-photo {
-  flex: 1;
-  background-size: cover;
-  background-position: center;
-  filter: brightness(0.55) saturate(1.05);
-}
-.welcome-photo.main {
-  flex: 1.6;
-  border-radius: var(--radius-lg);
-  filter: brightness(0.65) saturate(1.05);
-}
-.welcome-splash::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, rgba(15, 15, 16, 0.35) 0%, rgba(15, 15, 16, 0.55) 45%, #0f0f10 92%);
-}
-.welcome-content {
-  position: relative;
-  z-index: 1;
-  margin-top: auto;
-  text-align: center;
-  padding: 0 28px calc(28px + env(safe-area-inset-bottom));
-}
-.welcome-label {
+.opening-sequence.fade-out { opacity: 0; }
+.opening-text-wrap { display: flex; align-items: center; }
+.opening-text {
   font-family: var(--font-display);
-  font-size: 0.78rem;
+  font-size: 2rem;
   font-weight: 700;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--accent);
-  margin-bottom: 14px;
-  opacity: 0;
-  animation: welcomeTextIn 0.4s var(--ease-out) 0.1s forwards;
-}
-.welcome-text {
-  font-family: var(--font-display);
-  font-size: 2.1rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  line-height: 1.1;
   color: #fff;
   letter-spacing: 0.01em;
-  margin-bottom: 26px;
-  opacity: 0;
-  animation: welcomeTextIn 0.45s var(--ease-out) 0.2s forwards;
 }
-.welcome-cta {
-  display: block;
-  width: 100%;
-  border: none;
-  border-radius: var(--radius-full);
+.opening-cursor {
+  display: inline-block;
+  width: 3px;
+  height: 1.7rem;
+  margin-left: 3px;
   background: var(--accent);
-  color: #14140a;
-  font-family: var(--font-display);
-  font-size: 1rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  padding: 18px 20px;
-  box-shadow: var(--shadow-accent);
+  animation: cursorBlink 0.9s steps(1) infinite;
+}
+.opening-cursor.fade-out {
+  animation: none;
   opacity: 0;
-  animation: welcomeTextIn 0.45s var(--ease-out) 0.3s forwards;
+  transition: opacity 0.3s var(--ease-standard);
 }
-.welcome-cta:active { transform: scale(0.97); }
-.welcome-home-indicator {
-  width: 120px;
-  height: 4px;
-  border-radius: var(--radius-full);
-  background: rgba(255, 255, 255, 0.35);
-  margin: 22px auto 0;
+@keyframes cursorBlink { 50% { opacity: 0; } }
+
+.opening-start-btn {
+  margin-top: 36px;
+  width: auto;
+  min-width: 180px;
+  padding: 16px 44px;
+  opacity: 0;
+  transform: scale(0.85);
+  pointer-events: none;
+  transition: opacity 0.35s var(--ease-spring), transform 0.35s var(--ease-spring);
 }
-@keyframes splashIn { from { opacity: 0; } to { opacity: 1; } }
-@keyframes splashOut { from { opacity: 1; } to { opacity: 0; } }
-@keyframes welcomeTextIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+.opening-start-btn.in { opacity: 1; transform: scale(1); pointer-events: auto; }
+.opening-start-btn.pressed { animation: openingStartPress 0.22s var(--ease-standard); }
+@keyframes openingStartPress {
+  0% { transform: scale(1); filter: brightness(1); }
+  35% { transform: scale(0.92); filter: brightness(1.4); }
+  100% { transform: scale(1); filter: brightness(1); }
 }
 
 /* ============================================================
