@@ -1,6 +1,7 @@
 import * as State from "./state.js";
 import { getUserName, getTheme } from "./storage.js";
 import { maybeShowTrainingReminder } from "./notifications.js";
+import { icon } from "./icons.js";
 import * as Dashboard from "./screens/dashboard.js";
 import * as ProgramSetup from "./screens/programSetup.js";
 import * as ReviewExercises from "./screens/reviewExercises.js";
@@ -26,13 +27,13 @@ function renderTabBar(activeRoute) {
   bar.className = "tab-bar";
   bar.innerHTML = `
     <button data-route="dashboard" class="${activeRoute === "dashboard" ? "active" : ""}">
-      <span class="icon">🏋️</span>Home
+      <span class="icon">${icon("dumbbell")}</span>Home
     </button>
     <button data-route="history" class="${activeRoute === "history" ? "active" : ""}">
-      <span class="icon">📈</span>History
+      <span class="icon">${icon("trending-up")}</span>History
     </button>
     <button data-route="settings" class="${activeRoute === "settings" ? "active" : ""}">
-      <span class="icon">⚙️</span>Settings
+      <span class="icon">${icon("settings")}</span>Settings
     </button>
   `;
   bar.querySelectorAll("button").forEach((btn) => {
@@ -120,9 +121,10 @@ function render() {
 }
 
 // Runs once per app open, before anything else is on screen: a blank dark
-// screen, a typewriter greeting, then a Start button that's the ONLY way
-// forward — no timeout, no tap-anywhere fallback. onDone (building the
-// real Dashboard underneath) only fires once Start is actually pressed.
+// screen, a typewriter greeting, then a moody gym photo + Start button that
+// fade in together — Start is the ONLY way forward, no timeout, no
+// tap-anywhere fallback. onDone (building the real Dashboard underneath)
+// only fires once Start is actually pressed.
 function showOpeningSequence(onDone) {
   const el = document.createElement("div");
   el.className = "opening-sequence";
@@ -130,15 +132,18 @@ function showOpeningSequence(onDone) {
     <div class="opening-text-wrap">
       <span class="opening-text"></span><span class="opening-cursor"></span>
     </div>
-    <button type="button" class="btn opening-start-btn">Start</button>
+    <div class="opening-photo-card" style="background-image:url('images/workout-moody.jpg')"></div>
+    <button type="button" class="btn opening-start-btn">START</button>
   `;
   document.body.appendChild(el);
 
   const textEl = el.querySelector(".opening-text");
   const cursorEl = el.querySelector(".opening-cursor");
+  const photoEl = el.querySelector(".opening-photo-card");
   const startBtn = el.querySelector(".opening-start-btn");
 
-  const fullText = `Hello ${getUserName()}`;
+  const name = getUserName();
+  const fullText = name ? `Welcome ${name}` : "Welcome Friend";
   let i = 0;
   function typeNext() {
     i++;
@@ -148,7 +153,10 @@ function showOpeningSequence(onDone) {
     } else {
       setTimeout(() => {
         cursorEl.classList.add("fade-out");
-        requestAnimationFrame(() => startBtn.classList.add("in"));
+        requestAnimationFrame(() => {
+          photoEl.classList.add("in");
+          startBtn.classList.add("in");
+        });
       }, 500);
     }
   }

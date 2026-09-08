@@ -1742,8 +1742,33 @@ select#historyExercisePicker:focus {
 }
 @keyframes cursorBlink { 50% { opacity: 0; } }
 
+/* Same rounded-photo-card language used elsewhere (.photo-banner): rounded
+   corners, border, soft shadow, a darkening gradient for mood. */
+.opening-photo-card {
+  margin-top: 32px;
+  width: min(280px, 80vw);
+  height: 170px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-card);
+  background-size: cover;
+  background-position: center;
+  position: relative;
+  opacity: 0;
+  transform: translateY(10px) scale(0.97);
+  transition: opacity 0.4s var(--ease-out), transform 0.4s var(--ease-out);
+}
+.opening-photo-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgba(20, 20, 22, 0.05) 0%, rgba(20, 20, 22, 0.45) 100%);
+}
+.opening-photo-card.in { opacity: 1; transform: translateY(0) scale(1); }
+
 .opening-start-btn {
-  margin-top: 36px;
+  margin-top: 28px;
   width: auto;
   min-width: 180px;
   padding: 16px 44px;

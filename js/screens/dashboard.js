@@ -290,7 +290,7 @@ export function render(container, { navigate }) {
   if (program.status === "completed" || !next) {
     container.innerHTML = `
       <div class="greeting-eyebrow">${greetingWord()}</div>
-      <h1>${getUserName()}</h1>
+      <h1>${getUserName() || "Friend"}</h1>
       <div class="empty-state">
         <span class="empty-icon">🏆</span>
         <h2>Program complete</h2>
@@ -312,7 +312,7 @@ export function render(container, { navigate }) {
 
   container.innerHTML = `
     <div class="greeting-eyebrow">${greetingWord()}</div>
-    <h1>${getUserName()}</h1>
+    <h1>${getUserName() || "Friend"}</h1>
 
     ${dashStatRowHTML(data, week, completedDaysThisWeek)}
     ${weeklyLoadChartHTML()}

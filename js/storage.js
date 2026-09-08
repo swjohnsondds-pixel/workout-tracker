@@ -132,12 +132,15 @@ const HEIGHT_KEY = "workoutTrackerHeightInches";
 const NOTIFICATIONS_ENABLED_KEY = "workoutTrackerNotificationsEnabled";
 const LAST_NOTIFIED_KEY = "workoutTrackerLastNotifiedAt";
 
+// Empty until the user sets one in Settings — callers that display it
+// decide their own generic fallback ("Friend", "Welcome" with no name)
+// rather than this module hardcoding a specific person's name.
 export function getUserName() {
-  return localStorage.getItem(NAME_KEY) || "Steven";
+  return localStorage.getItem(NAME_KEY) || "";
 }
 
 export function setUserName(name) {
-  localStorage.setItem(NAME_KEY, name || "Steven");
+  localStorage.setItem(NAME_KEY, name || "");
 }
 
 export function getLastExportAt() {
