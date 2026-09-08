@@ -3,6 +3,7 @@ import { EXERCISES, getAlternatives } from "../exercises.js";
 import { calculateWarmups } from "../warmups.js";
 import { fetchHowTo } from "../howto.js";
 import { openModal, closeModal } from "../modal.js";
+import { icon } from "../icons.js";
 
 const PAIN_JOINTS = ["Shoulder", "Elbow", "Wrist", "Lower Back", "Hip", "Knee", "Ankle", "Other"];
 
@@ -106,7 +107,7 @@ function startRestTimer(seconds, label, unit) {
         <span class="rest-stat-value rest-stat-time">${fmtClock(remaining)}</span>
       </div>
       <button type="button" class="rest-pause-btn" aria-label="Skip rest">
-        <span class="rest-pause-icon">⏭</span>
+        <span class="rest-pause-icon">${icon("skip-forward", { size: 26 })}</span>
       </button>
       <div class="rest-stat-pill">
         <span class="rest-stat-label">Target</span>
@@ -124,7 +125,7 @@ function startRestTimer(seconds, label, unit) {
 
   function tick() {
     if (remaining <= 0) {
-      clockEl.textContent = "✓";
+      clockEl.innerHTML = icon("check", { size: 48 });
       el.classList.add("done");
       clearInterval(restTimer.intervalId);
       restTimer.intervalId = null;
@@ -175,10 +176,10 @@ function prescriptionText(log, weekNumber) {
 }
 
 const ACTION_FLAGS = {
-  increase_weight: { label: "🔺 Weight up — reps maxed last week", cls: "flag-up" },
-  hold: { label: "⏸ Holding — RIR was low last week", cls: "flag-hold" },
-  maxed_bodyweight: { label: "⚠️ Reps maxed — consider a harder variation", cls: "flag-hold" },
-  manual_override: { label: "✏️ Manually adjusted in My Program", cls: "flag-up" },
+  increase_weight: { label: `${icon("trending-up", { size: 13 })} Weight up — reps maxed last week`, cls: "flag-up" },
+  hold: { label: `${icon("pause", { size: 13 })} Holding — RIR was low last week`, cls: "flag-hold" },
+  maxed_bodyweight: { label: `${icon("triangle-alert", { size: 13 })} Reps maxed — consider a harder variation`, cls: "flag-hold" },
+  manual_override: { label: `${icon("pencil", { size: 13 })} Manually adjusted in My Program`, cls: "flag-up" },
 };
 
 function actionFlagHTML(log) {
@@ -204,7 +205,7 @@ function muscleSectionHTML(def, id, isPair) {
 function doneLineInner(exerciseDef, set) {
   const values =
     exerciseDef.equipment === "bodyweight" ? `${set.reps ?? "?"} reps` : `${set.weight ?? "?"} lb × ${set.reps ?? "?"}`;
-  return `<span class="check-icon">✓</span><span class="set-values">${values}</span>`;
+  return `<span class="check-icon">${icon("check", { size: 14 })}</span><span class="set-values">${values}</span>`;
 }
 
 function stepperFieldHTML(label, kind, exId, r, value, placeholder, showPlateCalc) {
@@ -216,7 +217,7 @@ function stepperFieldHTML(label, kind, exId, r, value, placeholder, showPlateCal
         <input type="number" inputmode="${kind === "weight" ? "decimal" : "numeric"}" class="field-input" data-kind="${kind}" data-ex="${exId}" data-round="${r}" value="${value ?? ""}" placeholder="${placeholder ?? ""}" />
         <button type="button" class="step-btn" data-step="1" data-kind="${kind}" data-ex="${exId}" data-round="${r}">+</button>
       </div>
-      ${showPlateCalc ? `<button type="button" class="plate-calc-link" data-plate-calc data-ex="${exId}" data-round="${r}">🏋️ Plate calculator</button>` : ""}
+      ${showPlateCalc ? `<button type="button" class="plate-calc-link" data-plate-calc data-ex="${exId}" data-round="${r}">${icon("dumbbell", { size: 14 })} Plate calculator</button>` : ""}
     </div>
   `;
 }
@@ -283,14 +284,14 @@ function painSectionHTML(exerciseId) {
     // flag — flagging pain is a reason to swap, not the only way to.
     return `
       <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
-        <button type="button" class="btn small secondary" data-swap-ex="${exerciseId}" style="width:auto;">🔄 Swap Exercise</button>
-        <button type="button" class="btn small secondary" data-flag-pain="${exerciseId}" style="width:auto;">🚩 Flag Pain</button>
+        <button type="button" class="btn small secondary" data-swap-ex="${exerciseId}" style="width:auto;">${icon("repeat", { size: 14 })} Swap Exercise</button>
+        <button type="button" class="btn small secondary" data-flag-pain="${exerciseId}" style="width:auto;">${icon("flag", { size: 14 })} Flag Pain</button>
       </div>
     `;
   }
   return `
     <div class="pain-banner">
-      <strong>⚠️ ${def.name} — ${flag.joint} pain flagged</strong>
+      <strong style="display:flex;align-items:center;gap:7px;">${icon("triangle-alert", { size: 15 })} ${def.name} — ${flag.joint} pain flagged</strong>
       ${flag.note ? `<span class="subtle">${flag.note}</span>` : ""}
       <div class="pain-banner-actions">
         <button type="button" class="btn small secondary" data-resolve-pain="${flag.id}">Feeling better</button>
@@ -392,7 +393,7 @@ function celebratePR(def, weight, reps) {
   el.className = "pr-celebration";
   const detail = weight != null ? `${def.name} — ${weight} lb × ${reps}` : `${def.name} — ${reps} reps`;
   el.innerHTML = `
-    <div class="pr-celebration-emoji">🎉</div>
+    <div class="pr-celebration-emoji">${icon("party-popper", { size: 30 })}</div>
     <div class="pr-celebration-title">New PR!</div>
     <div class="pr-celebration-detail">${detail}</div>
   `;
@@ -549,7 +550,7 @@ export function render(container, { navigate, weekNumber, dayTemplateId }) {
     const isLast = currentIndex === units.length - 1;
     nextBtn.className = "";
     if (isLast) {
-      nextBtn.textContent = "Finish Workout ✓";
+      nextBtn.innerHTML = `Finish Workout ${icon("check", { size: 14 })}`;
       nextBtn.classList.add("finish-primary");
     } else {
       nextBtn.textContent = "Next ›";
@@ -574,13 +575,13 @@ export function render(container, { navigate, weekNumber, dayTemplateId }) {
            <span class="pair-plus">+</span>
            <button type="button" class="exercise-name-btn" data-howto="${ids[1]}">${defs[1].name}</button>
          </div>`
-      : `<button type="button" class="exercise-name-btn" data-howto="${ids[0]}">${defs[0].name} <span class="info-icon">ⓘ How-to</span></button>`;
+      : `<button type="button" class="exercise-name-btn" data-howto="${ids[0]}">${defs[0].name} <span class="info-icon">${icon("info", { size: 13 })} How-to</span></button>`;
 
     const metaLine = `
       <div class="chip-pill-row">
-        <span class="chip-pill">📊 ${logs[0].sets} ${isPair ? "rounds" : "sets"}</span>
-        <span class="chip-pill">🔁 ${logs[0].repMin}-${logs[0].repMax} reps</span>
-        <span class="chip-pill">🎯 RIR ${logs[0].targetRIR}</span>
+        <span class="chip-pill">${icon("bar-chart-3", { size: 12 })} ${logs[0].sets} ${isPair ? "rounds" : "sets"}</span>
+        <span class="chip-pill">${icon("repeat", { size: 12 })} ${logs[0].repMin}-${logs[0].repMax} reps</span>
+        <span class="chip-pill">${icon("target", { size: 12 })} RIR ${logs[0].targetRIR}</span>
       </div>
     `;
     const flagsHTML = logs.map(actionFlagHTML).join("");
@@ -756,7 +757,7 @@ export function render(container, { navigate, weekNumber, dayTemplateId }) {
 
       const burst = document.createElement("span");
       burst.className = "checkmark-burst";
-      burst.textContent = "✓";
+      burst.innerHTML = icon("check", { size: 28 });
       roundExerciseEl.appendChild(burst);
       setTimeout(() => burst.remove(), 650);
 

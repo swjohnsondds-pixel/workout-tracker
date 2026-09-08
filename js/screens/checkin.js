@@ -1,9 +1,10 @@
 import * as State from "../state.js";
+import { icon } from "../icons.js";
 
 const OPTIONS = [
-  { level: "sore", emoji: "😩", label: "Sore / Tired", sub: "Trims a set off today's exercises" },
-  { level: "okay", emoji: "🙂", label: "Okay", sub: "Full prescribed volume" },
-  { level: "great", emoji: "💪", label: "Great", sub: "Full prescribed volume" },
+  { level: "sore", iconName: "frown", label: "Sore / Tired", sub: "Trims a set off today's exercises" },
+  { level: "okay", iconName: "meh", label: "Okay", sub: "Full prescribed volume" },
+  { level: "great", iconName: "smile", label: "Great", sub: "Full prescribed volume" },
 ];
 
 export function render(container, { navigate, weekNumber, dayTemplateId }) {
@@ -18,7 +19,7 @@ export function render(container, { navigate, weekNumber, dayTemplateId }) {
       ${OPTIONS.map(
         (o) => `
           <button type="button" class="checkin-option" data-level="${o.level}">
-            <span class="checkin-emoji">${o.emoji}</span>
+            <span class="checkin-emoji">${icon(o.iconName, { size: 30 })}</span>
             <span>
               <span class="checkin-label" style="display:block;">${o.label}</span>
               <span class="checkin-sub">${o.sub}</span>

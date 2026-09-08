@@ -220,6 +220,15 @@ p.subtle, .subtle {
    ============================================================ */
 button { font-family: inherit; cursor: pointer; }
 
+/* ============================================================
+   ICON SET
+   Single-color line icons (Lucide, self-hosted via js/icons.js). Every
+   icon inherits `color` from its container via stroke="currentColor" —
+   the same muted-gray/accent-green logic already used for text never
+   needs a separate "icon color" rule.
+   ============================================================ */
+.icon-svg { display: inline-block; vertical-align: middle; flex-shrink: 0; }
+
 .btn {
   display: inline-flex;
   align-items: center;
@@ -356,7 +365,7 @@ button { font-family: inherit; cursor: pointer; }
 }
 .tab-bar button.active { color: var(--accent-text); background: var(--accent); }
 .tab-bar button:active { transform: scale(0.92); }
-.tab-bar button .icon { display: block; font-size: 1.15rem; }
+.tab-bar button .icon { display: block; }
 
 /* ============================================================
    DASHBOARD
@@ -479,7 +488,7 @@ button { font-family: inherit; cursor: pointer; }
   padding: 16px 10px 14px;
   text-align: center;
 }
-.dash-stat-icon { font-size: 1.15rem; margin-bottom: 8px; filter: none; }
+.dash-stat-icon { display: flex; justify-content: center; margin-bottom: 8px; color: var(--text-secondary); }
 .dash-stat-num {
   display: block;
   font-family: var(--font-display);
@@ -582,10 +591,10 @@ button { font-family: inherit; cursor: pointer; }
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.5rem;
+  color: var(--text-secondary);
   flex-shrink: 0;
 }
-.day-plan-card.current .day-plan-icon { background: var(--accent-soft); }
+.day-plan-card.current .day-plan-icon { background: var(--accent-soft); color: var(--accent); }
 .day-plan-info { flex: 1; min-width: 0; }
 .day-plan-title {
   font-weight: 800;
@@ -643,7 +652,7 @@ button { font-family: inherit; cursor: pointer; }
   padding: 60px 24px;
   color: var(--text-secondary);
 }
-.empty-state .empty-icon { font-size: 2.6rem; margin-bottom: 14px; display: block; }
+.empty-state .empty-icon { margin-bottom: 14px; display: flex; justify-content: center; color: var(--accent); }
 .empty-state h2 { color: var(--text); }
 
 /* ============================================================
@@ -871,6 +880,9 @@ button { font-family: inherit; cursor: pointer; }
 }
 .exercise-name-btn:active { opacity: 0.6; }
 .exercise-name-btn .info-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
   color: var(--accent);
   font-size: 0.7rem;
   font-weight: 700;
@@ -945,7 +957,9 @@ button { font-family: inherit; cursor: pointer; }
 }
 
 .action-flag {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 0.78rem;
   font-weight: 700;
   padding: 6px 12px;
@@ -1299,7 +1313,6 @@ button { font-family: inherit; cursor: pointer; }
   border-radius: 50%;
   background: var(--success-soft);
   color: var(--success);
-  font-size: 2.2rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1439,7 +1452,7 @@ select#historyExercisePicker:focus {
   padding: 14px 16px;
   margin-bottom: 14px;
 }
-.pr-trophy { font-size: 1.6rem; }
+.pr-trophy { display: flex; color: var(--accent); }
 .pr-label {
   font-size: 0.68rem;
   font-weight: 700;
@@ -1547,14 +1560,14 @@ select#historyExercisePicker:focus {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.95rem;
+  color: var(--text-secondary);
   flex-shrink: 0;
 }
 .settings-row .row-text { flex: 1; }
 .settings-row .row-sub { font-size: 0.78rem; font-weight: 500; color: var(--text-tertiary); margin-top: 2px; }
 .row-chevron { color: var(--text-tertiary); font-size: 0.85rem; }
 .settings-row.danger { color: var(--danger); }
-.settings-row.danger .row-icon { background: var(--danger-soft); }
+.settings-row.danger .row-icon { background: var(--danger-soft); color: var(--danger); }
 
 /* ---- body composition ---- */
 .body-thumb {
@@ -1638,7 +1651,9 @@ select#historyExercisePicker:focus {
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .modal-close:active { transform: scale(0.9); }
 .modal-body h2 { margin-top: 8px; padding-right: 40px; font-size: 1.2rem; }
@@ -1853,7 +1868,7 @@ select#historyExercisePicker:focus {
   transition: transform 0.15s var(--ease-spring), border-color 0.15s, background 0.15s;
 }
 .checkin-option:active { transform: scale(0.97); background: var(--surface-2); }
-.checkin-option .checkin-emoji { font-size: 2rem; }
+.checkin-option .checkin-emoji { display: flex; color: var(--text-secondary); }
 .checkin-option .checkin-label { font-weight: 700; font-size: 1.02rem; color: var(--text); }
 .checkin-option .checkin-sub { font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px; }
 
@@ -1956,12 +1971,15 @@ select#historyExercisePicker:focus {
   font-weight: 600;
   margin-top: 8px;
 }
+.watch-stats-row span { display: inline-flex; align-items: center; gap: 4px; }
 
 /* ============================================================
    PLATE CALCULATOR
    ============================================================ */
 .plate-calc-link {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   background: none;
   border: none;
   color: var(--accent-strong);
@@ -2007,7 +2025,7 @@ select#historyExercisePicker:focus {
   animation: prIn 0.4s var(--ease-spring);
 }
 .pr-celebration.fade-out { animation: prOut 0.35s var(--ease-standard) forwards; }
-.pr-celebration-emoji { font-size: 2rem; animation: prEmojiPop 0.5s var(--ease-spring); }
+.pr-celebration-emoji { display: flex; justify-content: center; color: var(--accent); animation: prEmojiPop 0.5s var(--ease-spring); }
 .pr-celebration-title {
   font-size: 1.2rem;
   font-weight: 900;

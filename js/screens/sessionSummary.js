@@ -1,6 +1,7 @@
 import * as State from "../state.js";
 import { EXERCISES } from "../exercises.js";
 import { createWheelPicker, range } from "../wheelPicker.js";
+import { icon } from "../icons.js";
 
 const HR_VALUES = range(60, 200, 5);
 const CAL_VALUES = range(50, 800, 10);
@@ -18,9 +19,9 @@ function closestValue(values, target) {
 
 function watchStatsSummaryHTML(stats) {
   const parts = [];
-  if (stats.avgHR != null) parts.push(`❤️ ${stats.avgHR} bpm avg`);
-  if (stats.activeCalories != null) parts.push(`🔥 ${stats.activeCalories} cal`);
-  if (stats.durationMinutes != null) parts.push(`⏱ ${stats.durationMinutes} min`);
+  if (stats.avgHR != null) parts.push(`${icon("heart-pulse", { size: 14 })} ${stats.avgHR} bpm avg`);
+  if (stats.activeCalories != null) parts.push(`${icon("flame", { size: 14 })} ${stats.activeCalories} cal`);
+  if (stats.durationMinutes != null) parts.push(`${icon("clock", { size: 14 })} ${stats.durationMinutes} min`);
   return parts.length ? `<div class="watch-stats-row">${parts.map((p) => `<span>${p}</span>`).join("")}</div>` : "";
 }
 
@@ -31,7 +32,7 @@ function renderWatchStatsCard(container, { weekNumber, dayTemplateId, day, onSav
   if (existing) {
     slot.innerHTML = `
       <div class="card">
-        <h2>⌚ Watch Stats</h2>
+        <h2 style="display:flex;align-items:center;gap:8px;">${icon("watch", { size: 18 })} Watch Stats</h2>
         ${watchStatsSummaryHTML(existing)}
         <button class="btn ghost" id="editWatchStatsBtn" style="margin-top:8px;">Edit</button>
       </div>
@@ -47,7 +48,7 @@ function renderWatchStatsCard(container, { weekNumber, dayTemplateId, day, onSav
 
   slot.innerHTML = `
     <div class="card">
-      <h2>⌚ Add Watch Stats</h2>
+      <h2 style="display:flex;align-items:center;gap:8px;">${icon("watch", { size: 18 })} Add Watch Stats</h2>
       <p class="subtle" style="margin-bottom:14px;">Optional — quickly log what your Apple Watch showed for this session. Skip if you don't have it handy.</p>
       <div class="wheel-row">
         <div class="wheel-col">
@@ -126,12 +127,12 @@ export function render(container, { navigate, weekNumber, dayTemplateId }) {
   }
 
   const ACTION_LABELS = {
-    increase_weight: "🔺 Weight increased — reps maxed",
+    increase_weight: `${icon("trending-up", { size: 13 })} Weight increased — reps maxed`,
     increase_reps: "Reps target up",
     hold: "Holding — RIR was low",
     maxed_bodyweight: "Reps maxed — try a harder variation",
     deload: "Deload week",
-    manual_override: "✏️ Manually adjusted",
+    manual_override: `${icon("pencil", { size: 13 })} Manually adjusted`,
   };
 
   const rowsHTML = day.exerciseLogs
@@ -156,7 +157,7 @@ export function render(container, { navigate, weekNumber, dayTemplateId }) {
           <div>
             <div class="exercise-name">${exerciseDef.name}</div>
             <div class="subtle">${setsText}${log.rir != null ? ` · RIR ${log.rir}` : ""}</div>
-            ${actionLabel ? `<div class="subtle" style="color:var(--accent-strong);margin-top:2px;">${actionLabel}</div>` : ""}
+            ${actionLabel ? `<div class="subtle" style="color:var(--accent-strong);margin-top:2px;display:inline-flex;align-items:center;gap:6px;">${actionLabel}</div>` : ""}
           </div>
           ${nextText ? `<div class="recap-next">Next: ${nextText}</div>` : ""}
         </div>
@@ -173,7 +174,7 @@ export function render(container, { navigate, weekNumber, dayTemplateId }) {
     </div>
 
     <div class="summary-hero">
-      <div class="summary-icon">💪</div>
+      <div class="summary-icon">${icon("check-circle-2", { size: 34 })}</div>
       <h1>Workout Complete</h1>
       <p class="subtle">${template.label} · Week ${weekNumber}</p>
     </div>

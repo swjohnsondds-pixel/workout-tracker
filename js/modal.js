@@ -1,6 +1,7 @@
 // Lightweight overlay modal, independent of the screen router's innerHTML
 // churn — it's appended straight to <body> so it survives regardless of
 // which screen is currently mounted.
+import { icon } from "./icons.js";
 
 let currentOverlay = null;
 const CLOSE_MS = 200;
@@ -25,7 +26,7 @@ export function openModal(innerHTML) {
   overlay.className = "modal-overlay";
   overlay.innerHTML = `
     <div class="modal-sheet">
-      <button type="button" class="modal-close" aria-label="Close">✕</button>
+      <button type="button" class="modal-close" aria-label="Close">${icon("x", { size: 16 })}</button>
       <div class="modal-body">${innerHTML}</div>
     </div>
   `;

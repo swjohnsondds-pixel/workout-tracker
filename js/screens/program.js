@@ -1,6 +1,7 @@
 import * as State from "../state.js";
 import { EXERCISES } from "../exercises.js";
 import { openModal, closeModal } from "../modal.js";
+import { icon } from "../icons.js";
 
 function prescriptionText(entry) {
   const p = entry.prescription;
@@ -143,7 +144,7 @@ export function render(container, { navigate }) {
               ${EXERCISES[entry.exerciseId].name}
               <div class="row-sub">${prescriptionText(entry)}</div>
             </div>
-            <span class="row-chevron">✏️</span>
+            <span class="row-chevron">${icon("pencil", { size: 14 })}</span>
           </button>
         `
       )

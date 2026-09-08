@@ -1,5 +1,6 @@
 import * as State from "../state.js";
 import { EXERCISES } from "../exercises.js";
+import { icon } from "../icons.js";
 
 const CHART_W = 300;
 const CHART_H = 140;
@@ -99,7 +100,7 @@ function prBadgeHTML(pr) {
   const value = pr.weight != null ? `${pr.weight} lb × ${pr.minReps}` : `${pr.minReps} reps`;
   return `
     <div class="pr-badge">
-      <span class="pr-trophy">🏆</span>
+      <span class="pr-trophy">${icon("trophy", { size: 26 })}</span>
       <div>
         <div class="pr-label">Personal Record</div>
         <div class="pr-value">${value} <span class="subtle">· Week ${pr.weekNumber}</span></div>
@@ -127,7 +128,7 @@ function fatigueNoteHTML(history, targetRIR) {
   const recent = withRIR.slice(-3);
   const avgRecent = recent.reduce((s, h) => s + h.rir, 0) / recent.length;
   if (targetRIR != null && avgRecent < targetRIR - 0.5) {
-    return `<div class="action-flag flag-hold">⚠️ RIR has averaged ${avgRecent.toFixed(1)} the last 3 sessions vs a target of ${targetRIR} — fatigue may be creeping in before your next deload.</div>`;
+    return `<div class="action-flag flag-hold">${icon("triangle-alert", { size: 14 })} RIR has averaged ${avgRecent.toFixed(1)} the last 3 sessions vs a target of ${targetRIR} — fatigue may be creeping in before your next deload.</div>`;
   }
   return "";
 }
@@ -149,7 +150,7 @@ function renderExerciseView(container, initialId) {
   function renderExercise(exerciseId) {
     const history = State.getExerciseHistory(exerciseId);
     if (history.length === 0) {
-      body.innerHTML = `<div class="empty-state"><span class="empty-icon">📈</span><h2>No sessions yet</h2><p class="subtle">Complete this exercise in a workout to see progress here.</p></div>`;
+      body.innerHTML = `<div class="empty-state"><span class="empty-icon">${icon("trending-up", { size: 44 })}</span><h2>No sessions yet</h2><p class="subtle">Complete this exercise in a workout to see progress here.</p></div>`;
       return;
     }
     const pr = State.getPR(exerciseId);
@@ -159,7 +160,7 @@ function renderExerciseView(container, initialId) {
       .map(
         (h) => `
           <div class="history-row ${h.isDeload ? "deload" : ""}">
-            <div class="h-week">${pr && h.weekNumber === pr.weekNumber ? "🏆 " : ""}Week ${h.weekNumber}</div>
+            <div class="h-week" style="display:flex;align-items:center;gap:5px;">${pr && h.weekNumber === pr.weekNumber ? icon("trophy", { size: 13 }) : ""}Week ${h.weekNumber}</div>
             <div class="h-metric">${h.weight != null ? h.weight + " lb" : "BW"} × ${h.minReps}</div>
             <div class="h-rir">${h.rir != null ? "RIR " + h.rir : "—"}</div>
           </div>
@@ -217,16 +218,16 @@ function formatDate(iso) {
 function watchStatsRowHTML(stats) {
   if (!stats) return "";
   const parts = [];
-  if (stats.avgHR != null) parts.push(`❤️ ${stats.avgHR} bpm`);
-  if (stats.activeCalories != null) parts.push(`🔥 ${stats.activeCalories} cal`);
-  if (stats.durationMinutes != null) parts.push(`⏱ ${stats.durationMinutes} min`);
+  if (stats.avgHR != null) parts.push(`${icon("heart-pulse", { size: 14 })} ${stats.avgHR} bpm`);
+  if (stats.activeCalories != null) parts.push(`${icon("flame", { size: 14 })} ${stats.activeCalories} cal`);
+  if (stats.durationMinutes != null) parts.push(`${icon("clock", { size: 14 })} ${stats.durationMinutes} min`);
   return parts.length ? `<div class="watch-stats-row">${parts.map((p) => `<span>${p}</span>`).join("")}</div>` : "";
 }
 
 function renderSessionsView(container) {
   const sessions = State.getCompletedSessions();
   if (sessions.length === 0) {
-    container.innerHTML = `<div class="empty-state"><span class="empty-icon">🗓️</span><h2>No sessions yet</h2><p class="subtle">Finish a workout to see it show up here.</p></div>`;
+    container.innerHTML = `<div class="empty-state"><span class="empty-icon">${icon("calendar", { size: 44 })}</span><h2>No sessions yet</h2><p class="subtle">Finish a workout to see it show up here.</p></div>`;
     return;
   }
 
@@ -340,7 +341,7 @@ function renderVolumeView(container) {
     const totals = State.getWeeklyVolumeByMuscleGroup(Number(weekNumber));
     const entries = Object.entries(totals).sort((a, b) => b[1] - a[1]);
     if (entries.length === 0) {
-      body.innerHTML = `<div class="empty-state"><span class="empty-icon">🏋️</span><h2>No sets yet</h2><p class="subtle">Complete a session this week to see volume by muscle group.</p></div>`;
+      body.innerHTML = `<div class="empty-state"><span class="empty-icon">${icon("dumbbell", { size: 44 })}</span><h2>No sets yet</h2><p class="subtle">Complete a session this week to see volume by muscle group.</p></div>`;
       return;
     }
     const max = entries[0][1];
@@ -364,7 +365,7 @@ export function render(container, { navigate }) {
   const data = State.getData();
 
   if (!data) {
-    container.innerHTML = `<h1>History</h1><div class="empty-state"><span class="empty-icon">📊</span><h2>No program yet</h2><p class="subtle">Start a program to begin tracking progress.</p></div>`;
+    container.innerHTML = `<h1>History</h1><div class="empty-state"><span class="empty-icon">${icon("bar-chart-3", { size: 44 })}</span><h2>No program yet</h2><p class="subtle">Start a program to begin tracking progress.</p></div>`;
     return;
   }
 

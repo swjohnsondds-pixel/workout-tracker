@@ -2,6 +2,7 @@ import * as State from "../state.js";
 import { exportDataAsFile, importDataFromFile, wipeEverything, getUserName, setUserName, getTheme, setTheme } from "../storage.js";
 import { EXERCISES } from "../exercises.js";
 import { isEnabled as remindersEnabled, getPermission, enableReminders, disableReminders, notificationsSupported } from "../notifications.js";
+import { icon } from "../icons.js";
 
 export function render(container, { navigate }) {
   const data = State.getData();
@@ -25,19 +26,19 @@ export function render(container, { navigate }) {
       <span class="eyebrow">Program</span>
       <div class="settings-list">
         <div class="settings-row" style="cursor:default;">
-          <div class="row-icon">🏋️</div>
+          <div class="row-icon">${icon("dumbbell", { size: 16 })}</div>
           <div class="row-text">
             ${program ? `${program.totalWeeks}-week program` : "No active program"}
             ${program ? `<div class="row-sub">Deload every ${program.deloadEveryNWeeks} weeks · units: ${program.units}</div>` : ""}
           </div>
         </div>
         <button type="button" class="settings-row" id="viewProgramBtn">
-          <div class="row-icon">📋</div>
+          <div class="row-icon">${icon("clipboard-list", { size: 16 })}</div>
           <div class="row-text">View &amp; adjust program<div class="row-sub">Weeks remaining, upcoming prescriptions</div></div>
           <span class="row-chevron">›</span>
         </button>
         <button type="button" class="settings-row" id="newProgramBtn">
-          <div class="row-icon">✨</div>
+          <div class="row-icon">${icon("sparkles", { size: 16 })}</div>
           <div class="row-text">Start a new program</div>
           <span class="row-chevron">›</span>
         </button>
@@ -61,7 +62,7 @@ export function render(container, { navigate }) {
       <span class="eyebrow">Tracking</span>
       <div class="settings-list">
         <button type="button" class="settings-row" id="bodyCompBtn">
-          <div class="row-icon">📉</div>
+          <div class="row-icon">${icon("trending-down", { size: 16 })}</div>
           <div class="row-text">Body composition<div class="row-sub">Weight, measurements, progress photos</div></div>
           <span class="row-chevron">›</span>
         </button>
@@ -76,7 +77,7 @@ export function render(container, { navigate }) {
             .map(
               (f) => `
                 <div class="settings-row" style="cursor:default;">
-                  <div class="row-icon">⚠️</div>
+                  <div class="row-icon">${icon("triangle-alert", { size: 16 })}</div>
                   <div class="row-text">${EXERCISES[f.exerciseId]?.name || f.exerciseId} — ${f.joint}
                     <div class="row-sub">${f.note || "No note"} · ${new Date(f.loggedAt).toLocaleDateString()}</div>
                   </div>
@@ -114,12 +115,12 @@ export function render(container, { navigate }) {
       <span class="eyebrow">Backup</span>
       <div class="settings-list">
         <button type="button" class="settings-row" id="exportBtn">
-          <div class="row-icon">⬇️</div>
+          <div class="row-icon">${icon("download", { size: 16 })}</div>
           <div class="row-text">Export backup<div class="row-sub">Program data, body log, and photos as one JSON file</div></div>
           <span class="row-chevron">›</span>
         </button>
         <label class="settings-row" for="importFile" style="cursor:pointer;">
-          <div class="row-icon">⬆️</div>
+          <div class="row-icon">${icon("upload", { size: 16 })}</div>
           <div class="row-text">Import backup<div class="row-sub">Replaces all current data</div></div>
           <span class="row-chevron">›</span>
         </label>
@@ -132,7 +133,7 @@ export function render(container, { navigate }) {
       <span class="eyebrow">Danger Zone</span>
       <div class="settings-list">
         <button type="button" class="settings-row danger" id="clearBtn">
-          <div class="row-icon">🗑️</div>
+          <div class="row-icon">${icon("trash-2", { size: 16 })}</div>
           <div class="row-text">Erase all data<div class="row-sub">Program, body log, photos — everything</div></div>
         </button>
       </div>

@@ -61,7 +61,7 @@ export async function maybeShowTrainingReminder() {
   const last = getLastNotifiedAt();
   if (last && (Date.now() - new Date(last).getTime()) / 3600000 < RENOTIFY_HOURS) return;
 
-  const title = "Time to train 💪";
+  const title = "Time to train";
   const body = "Your next session is queued up and ready whenever you are.";
 
   try {

@@ -3,6 +3,7 @@ import { EXERCISES } from "../exercises.js";
 import { computeDeloadPrescription } from "../progression.js";
 import { getUserName, getLastExportAt, getLastBackupNudgeAt, markBackupNudged, exportDataAsFile } from "../storage.js";
 import { openModal, closeModal } from "../modal.js";
+import { icon } from "../icons.js";
 
 const BACKUP_REMINDER_DAYS = 14;
 const BACKUP_RENUDGE_DAYS = 7;
@@ -13,7 +14,7 @@ function dayLabel(dayTemplateId) {
 }
 
 function dayIcon(dayTemplateId) {
-  return dayTemplateId.startsWith("upper") ? "💪" : "🦵";
+  return icon(dayTemplateId.startsWith("upper") ? "biceps-flexed" : "footprints", { size: 26 });
 }
 
 function heroNote(weekNumber, isDeload) {
@@ -117,17 +118,17 @@ function dashStatRowHTML(data, week, completedDaysThisWeek) {
   return `
     <div class="dash-stat-row">
       <div class="dash-stat-card">
-        <div class="dash-stat-icon">🏋️</div>
+        <div class="dash-stat-icon">${icon("dumbbell")}</div>
         <span class="dash-stat-num">${completedDaysThisWeek}/${week.days.length}</span>
         <span class="dash-stat-label">This Week</span>
       </div>
       <div class="dash-stat-card">
-        <div class="dash-stat-icon">📊</div>
+        <div class="dash-stat-icon">${icon("bar-chart-3")}</div>
         <span class="dash-stat-num">${volume.toLocaleString()}</span>
         <span class="dash-stat-label">Volume (lb)</span>
       </div>
       <div class="dash-stat-card">
-        <div class="dash-stat-icon">🔥</div>
+        <div class="dash-stat-icon">${icon("flame")}</div>
         <span class="dash-stat-num">${streak}</span>
         <span class="dash-stat-label">Streak</span>
       </div>
@@ -208,7 +209,7 @@ function dayPlanCardHTML(day, next) {
 
   const badgeHTML =
     state === "done"
-      ? `<div class="day-plan-check">✓</div>`
+      ? `<div class="day-plan-check">${icon("check", { size: 15 })}</div>`
       : state === "skipped"
         ? `<div class="day-plan-check skipped">–</div>`
         : "";
@@ -221,9 +222,9 @@ function dayPlanCardHTML(day, next) {
       <div class="day-plan-info">
         <div class="day-plan-title">${dayLabel(day.dayTemplateId)}</div>
         <div class="chip-pill-row">
-          <span class="chip-pill">⏱ ${stats.estMinutes} min</span>
-          <span class="chip-pill">📊 ${stats.totalSets} sets</span>
-          <span class="chip-pill">🎯 RIR ${stats.avgRIR}</span>
+          <span class="chip-pill">${icon("clock", { size: 12 })} ${stats.estMinutes} min</span>
+          <span class="chip-pill">${icon("bar-chart-3", { size: 12 })} ${stats.totalSets} sets</span>
+          <span class="chip-pill">${icon("target", { size: 12 })} RIR ${stats.avgRIR}</span>
         </div>
         ${showBar ? `<div class="progress-bar-track small"><div class="progress-bar-fill" style="width:${pct}%"></div></div>` : ""}
       </div>
@@ -265,7 +266,7 @@ function maybeShowBackupReminder(container, navigate) {
   banner.className = "card";
   banner.style.borderColor = "var(--warning)";
   banner.innerHTML = `
-    <h2 style="color:var(--warning);">💾 Back up your data</h2>
+    <h2 style="color:var(--warning);display:flex;align-items:center;gap:8px;">${icon("save", { size: 18 })} Back up your data</h2>
     <p class="subtle">${lastExport ? "It's been a couple weeks since your last export." : "You haven't exported a backup yet."} Everything lives only on this device — a quick export protects months of progress.</p>
     <button class="btn secondary" id="exportNowBtn">Export Now</button>
     <button class="btn ghost" id="dismissBackupBtn">Remind me later</button>
@@ -292,7 +293,7 @@ export function render(container, { navigate }) {
       <div class="greeting-eyebrow">${greetingWord()}</div>
       <h1>${getUserName() || "Friend"}</h1>
       <div class="empty-state">
-        <span class="empty-icon">🏆</span>
+        <span class="empty-icon">${icon("trophy", { size: 44 })}</span>
         <h2>Program complete</h2>
         <p class="subtle">You finished all ${program.totalWeeks} weeks. Your history stays saved — start a new program whenever you're ready to keep building.</p>
       </div>

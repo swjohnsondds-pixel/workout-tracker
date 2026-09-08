@@ -2,6 +2,7 @@ import * as State from "../state.js";
 import { savePhoto, getPhotoURL, deletePhoto } from "../photoStore.js";
 import { uid, todayISO } from "../utils.js";
 import { getHeightInches, setHeightInches } from "../storage.js";
+import { icon } from "../icons.js";
 
 const METRICS = [
   { key: "weight", label: "Weight", unit: "lb" },
@@ -255,7 +256,7 @@ export function render(container, { navigate }) {
   // ---- entry list, with async photo thumbnails ----
   const listEl = container.querySelector("#entryList");
   if (entries.length === 0) {
-    listEl.innerHTML = `<div class="empty-state"><span class="empty-icon">📉</span><h2>No entries yet</h2><p class="subtle">Log your first reading above to start tracking.</p></div>`;
+    listEl.innerHTML = `<div class="empty-state"><span class="empty-icon">${icon("trending-down", { size: 44 })}</span><h2>No entries yet</h2><p class="subtle">Log your first reading above to start tracking.</p></div>`;
   } else {
     listEl.innerHTML = `<div class="settings-list">${[...entries].reverse().map((e) => `
       <div class="settings-row" style="cursor:default;">
