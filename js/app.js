@@ -158,11 +158,15 @@ function render() {
   }, EXIT_MS);
 }
 
-// Runs once per app open, before anything else is on screen: a blank dark
-// screen, a typewriter greeting, then a moody gym photo + Start button that
-// fade in together — Start is the ONLY way forward, no timeout, no
-// tap-anywhere fallback. onDone (building the real Dashboard underneath)
-// only fires once Start is actually pressed.
+// Runs once per app open, before anything else is on screen: the full-bleed
+// photo fades in first (establishing the background + its dark gradient
+// scrim), then the typewriter greeting types on top of it, then the Start
+// button fades/scales in — one continuous reveal, each step building on the
+// last, rather than everything popping in together at the end. Start is the
+// ONLY way forward, no timeout, no tap-anywhere fallback. onDone (building
+// the real Dashboard underneath) only fires once Start is actually pressed.
+const PHOTO_FADE_MS = 500; // must match .opening-photo-bg's transition duration in CSS
+
 function showOpeningSequence(onDone) {
   const el = document.createElement("div");
   el.className = "opening-sequence";
@@ -180,45 +184,45 @@ function showOpeningSequence(onDone) {
   const photoEl = el.querySelector(".opening-photo-bg");
   const startBtn = el.querySelector(".opening-start-btn");
 
+  function startTyping() {
+    const name = getUserName();
+    const fullText = name ? `Welcome ${name}` : "Welcome Friend";
+    let i = 0;
+    function typeNext() {
+      i++;
+      textEl.textContent = fullText.slice(0, i);
+      if (i < fullText.length) {
+        setTimeout(typeNext, 65);
+      } else {
+        setTimeout(() => {
+          cursorEl.classList.add("fade-out");
+          startBtn.classList.add("in");
+        }, 500);
+      }
+    }
+    setTimeout(typeNext, 300); // a short beat once the photo has settled, before typing starts
+  }
+
   // CSS opacity transitions only animate a property change — they don't
-  // wait for a background-image's bytes to actually arrive. Setting the
-  // image URL and revealing it on the same fixed timer meant that on a
-  // slow/cold cache, the opacity was already at 1 by the time the image
-  // itself finished loading, so it just popped in instead of fading. Load
-  // it explicitly first, and only reveal once it's decoded and the
-  // typewriter has finished — whichever finishes last — so the fade is
-  // always of an image that's actually ready to paint.
+  // wait for a background-image's bytes to actually arrive. Loading it
+  // explicitly first (rather than setting the URL and fading in on a fixed
+  // timer) means the fade is always of an image that's actually ready to
+  // paint, on a slow connection or a cold cache alike. The photo fades in
+  // FIRST — typing only starts once it (and its transition) has settled, so
+  // the greeting always appears on top of an already-visible background.
   const photoURL = "images/workout-moody.jpg";
-  let photoReady = false;
-  let typingDone = false;
-  function revealIfReady() {
-    if (!photoReady || !typingDone) return;
-    cursorEl.classList.add("fade-out");
+  let started = false;
+  function revealPhoto() {
+    if (started) return;
+    started = true;
     photoEl.classList.add("in");
-    startBtn.classList.add("in");
+    setTimeout(startTyping, PHOTO_FADE_MS);
   }
   const preload = new Image();
-  preload.onload = () => { photoEl.style.backgroundImage = `url('${photoURL}')`; photoReady = true; revealIfReady(); };
-  preload.onerror = () => { photoReady = true; revealIfReady(); }; // never block the Start button on a failed image load
+  preload.onload = () => { photoEl.style.backgroundImage = `url('${photoURL}')`; revealPhoto(); };
+  preload.onerror = revealPhoto; // never block the rest of the sequence on a failed image load
   preload.src = photoURL;
-  setTimeout(() => { photoReady = true; revealIfReady(); }, 2500); // safety net in case load/error never fire
-
-  const name = getUserName();
-  const fullText = name ? `Welcome ${name}` : "Welcome Friend";
-  let i = 0;
-  function typeNext() {
-    i++;
-    textEl.textContent = fullText.slice(0, i);
-    if (i < fullText.length) {
-      setTimeout(typeNext, 65);
-    } else {
-      setTimeout(() => {
-        typingDone = true;
-        revealIfReady();
-      }, 500);
-    }
-  }
-  setTimeout(typeNext, 400); // a beat of true blankness before typing starts
+  setTimeout(revealPhoto, 2500); // safety net in case load/error never fire
 
   startBtn.addEventListener("click", () => {
     if (startBtn.classList.contains("pressed")) return; // ignore a double-tap mid-transition
