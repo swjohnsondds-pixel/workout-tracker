@@ -517,13 +517,36 @@ export function getAllPainFlags() {
 }
 
 // Swaps an exercise going forward for every future occurrence of this day
-// (used when a pain-flag nudge leads to picking an alternative). Already-
-// completed history stays keyed to the old exercise, which is correct —
-// that's what you actually did.
+// (used when a pain-flag nudge leads to picking an alternative, or a plain
+// mid-workout swap). Already-completed history stays keyed to the old
+// exercise, which is correct — that's what you actually did.
 export function swapExerciseInProgram(dayTemplateId, oldExerciseId, newExerciseId) {
   const template = findDayTemplate(dayTemplateId);
   const slot = findSlot(template, oldExerciseId);
-  if (slot) slot.exerciseId = newExerciseId;
+  if (!slot) return;
+  slot.exerciseId = newExerciseId;
+
+  // If this day is mid-session right now, its exercise logs were already
+  // built against the OLD exercise id before the swap happened. Without
+  // this, the current session would end up looking up the new id (via the
+  // now-mutated template) against a log array that still only has an entry
+  // for the old one — undefined, and every render of this unit throws.
+  // Replace that entry with a fresh log for the new exercise instead of
+  // leaving the old one behind duplicated or orphaned. Any sets already
+  // logged against the old exercise this session are intentionally
+  // dropped — it's a genuinely different movement now, not a continuation,
+  // so carrying those numbers forward would misrepresent what was done.
+  for (const week of data.weeks) {
+    for (const day of week.days) {
+      if (day.dayTemplateId !== dayTemplateId || day.status !== "in_progress" || !day.exerciseLogs) continue;
+      const idx = day.exerciseLogs.findIndex((l) => l.exerciseId === oldExerciseId);
+      if (idx !== -1) {
+        const trimVolume = day.checkIn === "sore";
+        day.exerciseLogs[idx] = buildExerciseLog(newExerciseId, slot, week.weekNumber, trimVolume);
+      }
+    }
+  }
+
   saveData(data);
 }
 

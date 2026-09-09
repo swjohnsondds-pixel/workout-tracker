@@ -1682,7 +1682,10 @@ select#historyExercisePicker:focus {
 }
 .howto-tab[hidden] { display: none; }
 .youtube-link {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   text-align: center;
   background: var(--surface-2);
   border: 1.5px solid var(--border-strong);
@@ -1885,6 +1888,45 @@ select#historyExercisePicker:focus {
 }
 .pain-banner strong { color: var(--danger); display: block; margin-bottom: 6px; }
 .pain-banner-actions { display: flex; gap: 8px; margin-top: 10px; }
+
+/* ---- exercise secondary actions: a small kebab in the corner instead of
+   inline "Swap Exercise" / "Flag Pain" buttons competing with the primary
+   set-logging action for attention ---- */
+.exercise-actions-row {
+  display: flex;
+  justify-content: flex-end;
+  margin: -4px 0 4px;
+}
+.exercise-kebab-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.exercise-kebab-btn:active { background: var(--surface-2); color: var(--text); }
+
+.action-sheet-list { display: flex; flex-direction: column; }
+.action-sheet-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 15px 4px;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: none;
+  text-align: left;
+  color: var(--text);
+  font-size: 0.94rem;
+  font-weight: 600;
+}
+.action-sheet-item:last-child { border-bottom: none; }
+.action-sheet-item:active { background: var(--surface-2); }
 .joint-chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
 .joint-chip {
   padding: 9px 14px;

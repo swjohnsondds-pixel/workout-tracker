@@ -276,16 +276,18 @@ function rirRowHTML(log, exId, exName) {
   return `<div class="rir-row"><label>${exName} — RIR</label><div class="rir-pills">${pills}</div></div>`;
 }
 
+// The default (no active pain flag) case used to show two full labeled
+// buttons inline — "Swap Exercise" / "Flag Pain" — on every single exercise,
+// all the time. That competed with the actual primary action (logging a
+// set) for attention. Now it's one small icon-only kebab tucked in the
+// corner; tapping it opens a tiny action sheet with those same two actions.
 function painSectionHTML(exerciseId) {
   const def = EXERCISES[exerciseId];
   const flag = State.getActivePainFlag(exerciseId);
   if (!flag) {
-    // General mid-workout swap is always available, independent of a pain
-    // flag — flagging pain is a reason to swap, not the only way to.
     return `
-      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
-        <button type="button" class="btn small secondary" data-swap-ex="${exerciseId}" style="width:auto;">${icon("repeat", { size: 14 })} Swap Exercise</button>
-        <button type="button" class="btn small secondary" data-flag-pain="${exerciseId}" style="width:auto;">${icon("flag", { size: 14 })} Flag Pain</button>
+      <div class="exercise-actions-row">
+        <button type="button" class="exercise-kebab-btn" data-kebab="${exerciseId}" aria-label="More options for ${def.name}">${icon("ellipsis-vertical", { size: 16 })}</button>
       </div>
     `;
   }
@@ -299,6 +301,25 @@ function painSectionHTML(exerciseId) {
       </div>
     </div>
   `;
+}
+
+function openExerciseActionSheet(exerciseId, dayTemplateId, onAction) {
+  const def = EXERCISES[exerciseId];
+  const body = openModal(`
+    <h2>${def.name}</h2>
+    <div class="action-sheet-list">
+      <button type="button" class="action-sheet-item" id="sheetSwap">${icon("repeat", { size: 17 })} Swap Exercise</button>
+      <button type="button" class="action-sheet-item" id="sheetFlagPain">${icon("flag", { size: 17 })} Flag Pain</button>
+    </div>
+  `);
+  body.querySelector("#sheetSwap").addEventListener("click", () => {
+    closeModal();
+    openSwapModal(exerciseId, dayTemplateId, onAction);
+  });
+  body.querySelector("#sheetFlagPain").addEventListener("click", () => {
+    closeModal();
+    openFlagPainModal(exerciseId, onAction);
+  });
 }
 
 function openFlagPainModal(exerciseId, onSaved) {
@@ -406,61 +427,90 @@ function celebratePR(def, weight, reps) {
 function youtubeLinkHTML(exerciseDef) {
   return `
     <a class="youtube-link" href="${youtubeSearchURL(exerciseDef.name)}" target="_blank" rel="noopener">
-      ▶ Search YouTube for "${exerciseDef.name}"
+      ${icon("play", { size: 13 })} Search YouTube for "${exerciseDef.name}"
     </a>
+  `;
+}
+
+function muscleBreakdownHTML(exerciseDef) {
+  const chips = (list) => list.map((m) => `<span class="chip">${m}</span>`).join("");
+  return `
+    <div class="muscle-group"><span class="muscle-label">Primary</span>${chips(exerciseDef.primary)}</div>
+    ${exerciseDef.secondary.length ? `<div class="muscle-group"><span class="muscle-label">Secondary</span>${chips(exerciseDef.secondary)}</div>` : ""}
+  `;
+}
+
+function videoPanelHTML(exerciseDef, howto) {
+  return howto && howto.video
+    ? `<video src="${howto.video}" controls playsinline muted></video><p class="subtle">Demonstration from our exercise database.</p>${youtubeLinkHTML(exerciseDef)}`
+    : `<p class="subtle" style="margin-bottom:12px;">No demonstration video in our database for this exercise yet.</p>${youtubeLinkHTML(exerciseDef)}`;
+}
+
+function diagramPanelHTML(exerciseDef, howto) {
+  const descHTML = howto && howto.description ? `<div class="modal-description">${howto.description}</div>` : "";
+  return `
+    <img src="${howto.image}" alt="${exerciseDef.name} diagram" />
+    <div class="muscle-panel" style="margin-bottom:14px;">${muscleBreakdownHTML(exerciseDef)}</div>
+    <div class="modal-cue">${exerciseDef.cue}</div>
+    ${descHTML}
+  `;
+}
+
+// Neither a video nor a diagram exists for this exercise (no wger match, or
+// wger has no media for it) — rather than a two-tab UI where both tabs just
+// say "not available" (reads as broken), show one consolidated view built
+// entirely from data we always have locally: the coaching cue, the muscle
+// breakdown, and a YouTube search fallback.
+function noReferenceHTML(exerciseDef) {
+  return `
+    <p class="subtle" style="margin-bottom:14px;">Reference not available yet for this exercise. Here's what to focus on:</p>
+    <div class="modal-cue">${exerciseDef.cue}</div>
+    <div class="muscle-panel" style="margin:14px 0;">${muscleBreakdownHTML(exerciseDef)}</div>
+    ${youtubeLinkHTML(exerciseDef)}
   `;
 }
 
 async function openHowTo(exerciseDef) {
   const body = openModal(`
     <h2>${exerciseDef.name}</h2>
-    <div class="view-toggle">
-      <button type="button" data-howto-tab="video" class="active">Watch Video</button>
-      <button type="button" data-howto-tab="diagram">See Diagram</button>
-    </div>
-    <div class="howto-tab" data-tab-panel="video">
-      <div class="modal-loading"><span class="spinner"></span>Looking for a demonstration…</div>
-    </div>
-    <div class="howto-tab" data-tab-panel="diagram" hidden>
-      <div class="modal-loading"><span class="spinner"></span>Looking for a diagram…</div>
-    </div>
+    <div class="modal-loading"><span class="spinner"></span>Looking for a reference…</div>
   `);
-
-  body.querySelectorAll("[data-howto-tab]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      body.querySelectorAll("[data-howto-tab]").forEach((b) => b.classList.toggle("active", b === btn));
-      body.querySelectorAll("[data-tab-panel]").forEach((p) => {
-        p.hidden = p.dataset.tabPanel !== btn.dataset.howtoTab;
-      });
-    });
-  });
 
   const howto = await fetchHowTo(exerciseDef.wgerId);
   if (!body.isConnected) return; // modal closed (or replaced) while fetching
 
-  const videoPanel = body.querySelector('[data-tab-panel="video"]');
-  const diagramPanel = body.querySelector('[data-tab-panel="diagram"]');
+  const hasVideo = !!(howto && howto.video);
+  const hasImage = !!(howto && howto.image);
+  const loading = body.querySelector(".modal-loading");
 
-  const videoHTML = howto && howto.video
-    ? `<video src="${howto.video}" controls playsinline muted></video><p class="subtle">Demonstration from our exercise database.</p>${youtubeLinkHTML(exerciseDef)}`
-    : `<p class="subtle" style="margin-bottom:12px;">No demonstration video in our database for this exercise yet.</p>${youtubeLinkHTML(exerciseDef)}`;
-  videoPanel.innerHTML = videoHTML;
-
-  const chips = (list) => list.map((m) => `<span class="chip">${m}</span>`).join("");
-  const imageHTML = howto && howto.image
-    ? `<img src="${howto.image}" alt="${exerciseDef.name} diagram" />`
-    : `<p class="subtle" style="margin-bottom:12px;">No diagram available from our database for this exercise.</p>`;
-  const muscleHTML = `
-    <div class="muscle-group"><span class="muscle-label">Primary</span>${chips(exerciseDef.primary)}</div>
-    ${exerciseDef.secondary.length ? `<div class="muscle-group"><span class="muscle-label">Secondary</span>${chips(exerciseDef.secondary)}</div>` : ""}
-  `;
-  const descHTML = howto && howto.description ? `<div class="modal-description">${howto.description}</div>` : "";
-  diagramPanel.innerHTML = `
-    ${imageHTML}
-    <div class="muscle-panel" style="margin-bottom:14px;">${muscleHTML}</div>
-    <div class="modal-cue">${exerciseDef.cue}</div>
-    ${descHTML}
-  `;
+  if (hasVideo && hasImage) {
+    // Both available: keep the tab switcher so either can be reached without
+    // scrolling past the other.
+    loading.outerHTML = `
+      <div class="view-toggle">
+        <button type="button" data-howto-tab="video" class="active">Watch Video</button>
+        <button type="button" data-howto-tab="diagram">See Diagram</button>
+      </div>
+      <div class="howto-tab" data-tab-panel="video">${videoPanelHTML(exerciseDef, howto)}</div>
+      <div class="howto-tab" data-tab-panel="diagram" hidden>${diagramPanelHTML(exerciseDef, howto)}</div>
+    `;
+    body.querySelectorAll("[data-howto-tab]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        body.querySelectorAll("[data-howto-tab]").forEach((b) => b.classList.toggle("active", b === btn));
+        body.querySelectorAll("[data-tab-panel]").forEach((p) => {
+          p.hidden = p.dataset.tabPanel !== btn.dataset.howtoTab;
+        });
+      });
+    });
+  } else if (hasVideo) {
+    // Only a video exists — no point showing a "See Diagram" tab that just
+    // says unavailable, so skip the tab switcher entirely.
+    loading.outerHTML = `<div class="howto-tab">${videoPanelHTML(exerciseDef, howto)}</div>`;
+  } else if (hasImage) {
+    loading.outerHTML = `<div class="howto-tab">${diagramPanelHTML(exerciseDef, howto)}</div>`;
+  } else {
+    loading.outerHTML = `<div class="howto-tab">${noReferenceHTML(exerciseDef)}</div>`;
+  }
 }
 
 // ================= main screen =================
@@ -658,6 +708,9 @@ export function render(container, { navigate, weekNumber, dayTemplateId }) {
       });
     });
 
+    slot.querySelectorAll("[data-kebab]").forEach((btn) => {
+      btn.addEventListener("click", () => openExerciseActionSheet(btn.dataset.kebab, dayTemplateId, paintUnit));
+    });
     slot.querySelectorAll("[data-flag-pain]").forEach((btn) => {
       btn.addEventListener("click", () => openFlagPainModal(btn.dataset.flagPain, paintUnit));
     });
