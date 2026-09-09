@@ -1732,12 +1732,41 @@ select#historyExercisePicker:focus {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 24px;
+  justify-content: flex-end;
+  padding: 24px 24px calc(56px + env(safe-area-inset-bottom));
+  overflow: hidden;
   transition: opacity 0.32s var(--ease-standard);
 }
 .opening-sequence.fade-out { opacity: 0; }
-.opening-text-wrap { display: flex; align-items: center; }
+
+/* Full-bleed background photo — covers the entire screen edge to edge, no
+   letterboxing. Starts invisible (the "blank screen" beat) and fades in
+   together with the Start button once typing finishes. A dark gradient
+   scrim sits on top of it (still behind the text/button) so the greeting
+   and CTA stay readable against a busy photo. */
+.opening-photo-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-size: cover;
+  background-position: center;
+  opacity: 0;
+  transition: opacity 0.5s var(--ease-out);
+}
+.opening-photo-bg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(20, 20, 22, 0.55) 0%, rgba(20, 20, 22, 0.4) 45%, rgba(20, 20, 22, 0.75) 100%);
+}
+.opening-photo-bg.in { opacity: 1; }
+
+.opening-text-wrap {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+}
 .opening-text {
   font-family: var(--font-display);
   font-size: 2rem;
@@ -1760,32 +1789,9 @@ select#historyExercisePicker:focus {
 }
 @keyframes cursorBlink { 50% { opacity: 0; } }
 
-/* Same rounded-photo-card language used elsewhere (.photo-banner): rounded
-   corners, border, soft shadow, a darkening gradient for mood. */
-.opening-photo-card {
-  margin-top: 32px;
-  width: min(280px, 80vw);
-  height: 170px;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border-strong);
-  box-shadow: var(--shadow-card);
-  background-size: cover;
-  background-position: center;
-  position: relative;
-  opacity: 0;
-  transform: translateY(10px) scale(0.97);
-  transition: opacity 0.4s var(--ease-out), transform 0.4s var(--ease-out);
-}
-.opening-photo-card::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: linear-gradient(180deg, rgba(20, 20, 22, 0.05) 0%, rgba(20, 20, 22, 0.45) 100%);
-}
-.opening-photo-card.in { opacity: 1; transform: translateY(0) scale(1); }
-
 .opening-start-btn {
+  position: relative;
+  z-index: 1;
   margin-top: 28px;
   width: auto;
   min-width: 180px;

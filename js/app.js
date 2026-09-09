@@ -129,17 +129,17 @@ function showOpeningSequence(onDone) {
   const el = document.createElement("div");
   el.className = "opening-sequence";
   el.innerHTML = `
+    <div class="opening-photo-bg" style="background-image:url('images/workout-moody.jpg')"></div>
     <div class="opening-text-wrap">
       <span class="opening-text"></span><span class="opening-cursor"></span>
     </div>
-    <div class="opening-photo-card" style="background-image:url('images/workout-moody.jpg')"></div>
     <button type="button" class="btn opening-start-btn">START</button>
   `;
   document.body.appendChild(el);
 
   const textEl = el.querySelector(".opening-text");
   const cursorEl = el.querySelector(".opening-cursor");
-  const photoEl = el.querySelector(".opening-photo-card");
+  const photoEl = el.querySelector(".opening-photo-bg");
   const startBtn = el.querySelector(".opening-start-btn");
 
   const name = getUserName();
