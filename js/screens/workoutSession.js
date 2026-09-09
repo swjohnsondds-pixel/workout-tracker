@@ -709,7 +709,14 @@ export function render(container, { navigate, weekNumber, dayTemplateId }) {
     });
 
     slot.querySelectorAll("[data-kebab]").forEach((btn) => {
-      btn.addEventListener("click", () => openExerciseActionSheet(btn.dataset.kebab, dayTemplateId, paintUnit));
+      // A swap here changes the day template itself, not just this exercise's
+      // log — a plain paintUnit() would still read the stale `units` array
+      // captured when this screen first rendered, so the swapped exercise
+      // wouldn't show up until you navigated away and back. Re-run the whole
+      // screen render instead, same as the pain-banner's swap button below.
+      btn.addEventListener("click", () =>
+        openExerciseActionSheet(btn.dataset.kebab, dayTemplateId, () => render(container, { navigate, weekNumber, dayTemplateId }))
+      );
     });
     slot.querySelectorAll("[data-flag-pain]").forEach((btn) => {
       btn.addEventListener("click", () => openFlagPainModal(btn.dataset.flagPain, paintUnit));
@@ -823,7 +830,20 @@ export function render(container, { navigate, weekNumber, dayTemplateId }) {
       const roundComplete = unit.exerciseIds.every((id) => findLog(id).workingSets[r].done);
       if (roundComplete) {
         const roundBlock = slot.querySelector(`.round-block[data-round-block="${r}"]`);
-        setTimeout(() => roundBlock.classList.add("collapsing"), 300);
+        setTimeout(() => {
+          // A CSS max-height transition can't animate from "auto", so this
+          // collapse used to fade from a fixed guessed cap instead — one
+          // that a two-exercise round's real content (name + weight/reps +
+          // plate calculator link + Mark Complete, times two) routinely
+          // exceeded. Whatever height was cut off past that cap still
+          // rendered (overflow stays visible), just positioned as if the
+          // block were only as tall as the cap — colliding with whatever
+          // came next (the next round, or the RIR row). Measuring the real
+          // height right before collapsing removes the guess entirely.
+          roundBlock.style.maxHeight = roundBlock.scrollHeight + "px";
+          void roundBlock.offsetHeight; // force layout so the browser registers that height before it's changed again
+          roundBlock.classList.add("collapsing");
+        }, 300);
 
         const wholeDayComplete = units.every(isUnitComplete);
         if (wholeDayComplete) {
@@ -857,6 +877,7 @@ export function render(container, { navigate, weekNumber, dayTemplateId }) {
 
       const roundBlock = slot.querySelector(`.round-block[data-round-block="${r}"]`);
       roundBlock.classList.remove("collapsing");
+      roundBlock.style.maxHeight = ""; // drop the measured cap from the collapse — back to its natural height
 
       updateHeaderProgress();
       updateNavButtons();

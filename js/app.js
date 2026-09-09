@@ -167,7 +167,7 @@ function showOpeningSequence(onDone) {
   const el = document.createElement("div");
   el.className = "opening-sequence";
   el.innerHTML = `
-    <div class="opening-photo-bg" style="background-image:url('images/workout-moody.jpg')"></div>
+    <div class="opening-photo-bg"></div>
     <div class="opening-text-wrap">
       <span class="opening-text"></span><span class="opening-cursor"></span>
     </div>
@@ -180,6 +180,29 @@ function showOpeningSequence(onDone) {
   const photoEl = el.querySelector(".opening-photo-bg");
   const startBtn = el.querySelector(".opening-start-btn");
 
+  // CSS opacity transitions only animate a property change — they don't
+  // wait for a background-image's bytes to actually arrive. Setting the
+  // image URL and revealing it on the same fixed timer meant that on a
+  // slow/cold cache, the opacity was already at 1 by the time the image
+  // itself finished loading, so it just popped in instead of fading. Load
+  // it explicitly first, and only reveal once it's decoded and the
+  // typewriter has finished — whichever finishes last — so the fade is
+  // always of an image that's actually ready to paint.
+  const photoURL = "images/workout-moody.jpg";
+  let photoReady = false;
+  let typingDone = false;
+  function revealIfReady() {
+    if (!photoReady || !typingDone) return;
+    cursorEl.classList.add("fade-out");
+    photoEl.classList.add("in");
+    startBtn.classList.add("in");
+  }
+  const preload = new Image();
+  preload.onload = () => { photoEl.style.backgroundImage = `url('${photoURL}')`; photoReady = true; revealIfReady(); };
+  preload.onerror = () => { photoReady = true; revealIfReady(); }; // never block the Start button on a failed image load
+  preload.src = photoURL;
+  setTimeout(() => { photoReady = true; revealIfReady(); }, 2500); // safety net in case load/error never fire
+
   const name = getUserName();
   const fullText = name ? `Welcome ${name}` : "Welcome Friend";
   let i = 0;
@@ -190,9 +213,8 @@ function showOpeningSequence(onDone) {
       setTimeout(typeNext, 65);
     } else {
       setTimeout(() => {
-        cursorEl.classList.add("fade-out");
-        photoEl.classList.add("in");
-        startBtn.classList.add("in");
+        typingDone = true;
+        revealIfReady();
       }, 500);
     }
   }

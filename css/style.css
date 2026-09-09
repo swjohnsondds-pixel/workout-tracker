@@ -978,7 +978,13 @@ button { font-family: inherit; cursor: pointer; }
   border-top: 1px dashed var(--border);
   padding-top: 14px;
   margin-top: 14px;
-  max-height: 500px;
+  /* No fixed max-height here — a two-exercise round's real content
+     (name + weight/reps + plate calculator + Mark Complete, x2) can run
+     well past any single guessed cap, and overflow stays visible past it,
+     colliding with whatever comes next. The collapse animation sets an
+     inline max-height measured from the real scrollHeight right before it
+     needs one (see handleComplete in workoutSession.js) — this transition
+     just needs to exist so that inline value can animate down to 0. */
   opacity: 1;
   transition: max-height 0.35s var(--ease-standard), opacity 0.25s, margin 0.35s, padding 0.35s;
 }
