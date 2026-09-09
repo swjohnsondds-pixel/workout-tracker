@@ -1,5 +1,5 @@
 import * as State from "./state.js";
-import { getUserName, getTheme } from "./storage.js";
+import { getUserName, getTheme, wipeEverything } from "./storage.js";
 import { maybeShowTrainingReminder } from "./notifications.js";
 import { icon } from "./icons.js";
 import * as Dashboard from "./screens/dashboard.js";
@@ -50,9 +50,47 @@ function parseHash() {
 
 let previousRoute = null;
 
+// A render crash used to leave #app exactly as innerHTML="" left it — a
+// silent blank screen with no signal anywhere about what broke. This
+// renders an actual recovery screen instead: the real error (so it's
+// diagnosable, not guessed at) plus a way forward that doesn't require
+// dev tools — reload, or reset app data if the underlying cause is
+// corrupted state that no navigation can fix on its own.
+function renderCrashScreen(error) {
+  console.error("Render failed:", error);
+  app.innerHTML = "";
+  const el = document.createElement("div");
+  el.className = "screen";
+  el.innerHTML = `
+    <h1>Something Went Wrong</h1>
+    <p class="subtle" style="margin-bottom:16px;">The screen you were on hit an error and couldn't render. Nothing has been lost — your data is still saved.</p>
+    <div class="card" style="margin-bottom:16px;">
+      <p class="subtle" style="font-family:monospace;font-size:0.78rem;white-space:pre-wrap;word-break:break-word;margin:0;">${(error && (error.stack || error.message)) || String(error)}</p>
+    </div>
+    <button type="button" class="btn" id="crashReloadBtn">Reload App</button>
+    <button type="button" class="btn danger-outline" id="crashResetBtn" style="margin-top:10px;">Reset App Data</button>
+  `;
+  app.appendChild(el);
+  el.querySelector("#crashReloadBtn").addEventListener("click", () => window.location.reload());
+  el.querySelector("#crashResetBtn").addEventListener("click", async () => {
+    if (!confirm("This permanently erases all workout data, body log entries, and photos on this device. Continue?")) return;
+    await wipeEverything();
+    window.location.hash = "";
+    window.location.reload();
+  });
+}
+
 // Builds the DOM for the current hash into a fresh #app — the actual
 // per-screen rendering logic, unconcerned with transitions.
 function renderRoute() {
+  try {
+    renderRouteUnsafe();
+  } catch (error) {
+    renderCrashScreen(error);
+  }
+}
+
+function renderRouteUnsafe() {
   const { route, params } = parseHash();
 
   if (previousRoute === "workout" && route !== "workout") {
@@ -153,10 +191,8 @@ function showOpeningSequence(onDone) {
     } else {
       setTimeout(() => {
         cursorEl.classList.add("fade-out");
-        requestAnimationFrame(() => {
-          photoEl.classList.add("in");
-          startBtn.classList.add("in");
-        });
+        photoEl.classList.add("in");
+        startBtn.classList.add("in");
       }, 500);
     }
   }
