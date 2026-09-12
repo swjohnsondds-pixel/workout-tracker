@@ -276,21 +276,23 @@ function rirRowHTML(log, exId, exName) {
   return `<div class="rir-row"><label>${exName} — RIR</label><div class="rir-pills">${pills}</div></div>`;
 }
 
-// The default (no active pain flag) case used to show two full labeled
-// buttons inline — "Swap Exercise" / "Flag Pain" — on every single exercise,
-// all the time. That competed with the actual primary action (logging a
-// set) for attention. Now it's one small icon-only kebab tucked in the
-// corner; tapping it opens a tiny action sheet with those same two actions.
+// Sits directly beside its own exercise's name in the header — not in a
+// separate row further down the card — so which exercise a kebab controls
+// is never ambiguous, especially for a superset pair where two of these
+// would otherwise render as two identical unlabeled dots stacked on top of
+// each other with nothing tying either one to a specific exercise.
+function kebabButtonHTML(exerciseId, def) {
+  return `<button type="button" class="exercise-kebab-btn" data-kebab="${exerciseId}" aria-label="More options for ${def.name}">${icon("ellipsis-vertical", { size: 16 })}</button>`;
+}
+
+// Only renders when this exercise actually has an active pain flag — the
+// banner already names the exercise directly in its own text, so it isn't
+// subject to the same ambiguity the kebab had. The swap/flag-pain triggers
+// themselves now live in the header (see kebabButtonHTML).
 function painSectionHTML(exerciseId) {
   const def = EXERCISES[exerciseId];
   const flag = State.getActivePainFlag(exerciseId);
-  if (!flag) {
-    return `
-      <div class="exercise-actions-row">
-        <button type="button" class="exercise-kebab-btn" data-kebab="${exerciseId}" aria-label="More options for ${def.name}">${icon("ellipsis-vertical", { size: 16 })}</button>
-      </div>
-    `;
-  }
+  if (!flag) return "";
   return `
     <div class="pain-banner">
       <strong style="display:flex;align-items:center;gap:7px;">${icon("triangle-alert", { size: 15 })} ${def.name} — ${flag.joint} pain flagged</strong>
@@ -540,7 +542,7 @@ export function render(container, { navigate, weekNumber, dayTemplateId }) {
     <div class="session-header">
       <div class="top-bar">
         <button class="back" id="backBtn">‹ Back</button>
-        <button class="btn ghost" id="finishLink" style="width:auto;">Finish Early</button>
+        <button type="button" class="exercise-kebab-btn" id="sessionMenuBtn" aria-label="Session options">${icon("ellipsis-vertical", { size: 18 })}</button>
       </div>
       <h1>${template.label}</h1>
       <p class="subtle">Week ${weekNumber} of ${program.totalWeeks}${week.isDeload ? " · Deload week" : ""}</p>
@@ -567,7 +569,7 @@ export function render(container, { navigate, weekNumber, dayTemplateId }) {
     cleanup();
     navigate("dashboard");
   });
-  container.querySelector("#finishLink").addEventListener("click", () => attemptFinish());
+  container.querySelector("#sessionMenuBtn").addEventListener("click", () => openSessionActionSheet());
   container.querySelector("#prevBtn").addEventListener("click", () => goToUnit(currentIndex - 1));
   container.querySelector("#nextBtn").addEventListener("click", () => {
     if (currentIndex === units.length - 1) attemptFinish();
@@ -583,6 +585,52 @@ export function render(container, { navigate, weekNumber, dayTemplateId }) {
     cleanup();
     State.finishDay(weekNumber, dayTemplateId);
     navigate(`summary/${weekNumber}/${dayTemplateId}`);
+  }
+
+  function openSessionActionSheet() {
+    const body = openModal(`
+      <h2>Session Options</h2>
+      <div class="action-sheet-list">
+        <button type="button" class="action-sheet-item" id="sheetFinish">${icon("check", { size: 17 })} Finish Early</button>
+        <button type="button" class="action-sheet-item" id="sheetSkip">${icon("flag", { size: 17 })} Skip Workout</button>
+      </div>
+    `);
+    body.querySelector("#sheetFinish").addEventListener("click", () => {
+      closeModal();
+      attemptFinish();
+    });
+    body.querySelector("#sheetSkip").addEventListener("click", () => {
+      closeModal();
+      openSkipWorkoutModal();
+    });
+  }
+
+  // Same underlying choice as the automatic missed-session prompt on the
+  // Dashboard (State.acknowledgeMissedSession / State.skipNextDay) — this
+  // is the same decision, just reached by manually asking to skip today
+  // instead of the app noticing a gap after the fact. This session's day
+  // is always whatever getNextWorkout() currently points at (you can only
+  // ever be mid-session on the one queued day), so those same functions
+  // apply directly here without needing a parallel implementation.
+  function openSkipWorkoutModal() {
+    const body = openModal(`
+      <h2>Skip ${template.label}?</h2>
+      <p class="subtle" style="margin-bottom:18px;">You can push the rest of the week back a day and pick this up later, or skip it outright and stay on the original schedule — a missed day just stays missed, no makeup.</p>
+      <button class="btn secondary" id="pushBackBtn" style="margin-bottom:10px;">Push back — I'll do it later</button>
+      <button class="btn danger-outline" id="skipOutrightBtn">Skip outright, stay on schedule</button>
+    `);
+    body.querySelector("#pushBackBtn").addEventListener("click", () => {
+      State.acknowledgeMissedSession();
+      closeModal();
+      cleanup();
+      navigate("dashboard");
+    });
+    body.querySelector("#skipOutrightBtn").addEventListener("click", () => {
+      State.skipNextDay();
+      closeModal();
+      cleanup();
+      navigate("dashboard");
+    });
   }
 
   function updateHeaderProgress() {
@@ -621,11 +669,20 @@ export function render(container, { navigate, weekNumber, dayTemplateId }) {
 
     const headerHTML = isPair
       ? `<div class="pair-header">
-           <button type="button" class="exercise-name-btn" data-howto="${ids[0]}">${defs[0].name}</button>
+           <div class="pair-exercise">
+             <button type="button" class="exercise-name-btn" data-howto="${ids[0]}">${defs[0].name}</button>
+             ${kebabButtonHTML(ids[0], defs[0])}
+           </div>
            <span class="pair-plus">+</span>
-           <button type="button" class="exercise-name-btn" data-howto="${ids[1]}">${defs[1].name}</button>
+           <div class="pair-exercise">
+             <button type="button" class="exercise-name-btn" data-howto="${ids[1]}">${defs[1].name}</button>
+             ${kebabButtonHTML(ids[1], defs[1])}
+           </div>
          </div>`
-      : `<button type="button" class="exercise-name-btn" data-howto="${ids[0]}">${defs[0].name} <span class="info-icon">${icon("info", { size: 13 })} How-to</span></button>`;
+      : `<div class="solo-header">
+           <button type="button" class="exercise-name-btn" data-howto="${ids[0]}">${defs[0].name} <span class="info-icon">${icon("info", { size: 13 })} How-to</span></button>
+           ${kebabButtonHTML(ids[0], defs[0])}
+         </div>`;
 
     const metaLine = `
       <div class="chip-pill-row">

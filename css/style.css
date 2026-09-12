@@ -865,6 +865,23 @@ button { font-family: inherit; cursor: pointer; }
   font-weight: 700;
   flex-shrink: 0;
 }
+/* Each exercise in a pair gets its own name + kebab grouped tightly
+   together, so which exercise a kebab controls is never ambiguous — before
+   this, both kebabs rendered as two identical unlabeled dots stacked in a
+   separate row with no visual tie to either exercise's name. */
+.pair-exercise {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.solo-header {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-bottom: 4px;
+}
 
 .exercise-name-btn {
   display: block;
@@ -901,6 +918,16 @@ button { font-family: inherit; cursor: pointer; }
   display: block;
 }
 .muscle-toggle:active { opacity: 0.5; }
+.day-plan-preview-btn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 0.74rem;
+  font-weight: 700;
+  padding: 6px 0 0;
+  display: block;
+}
+.day-plan-preview-btn:active { opacity: 0.5; }
 .muscle-panel {
   background: var(--surface-2);
   border-radius: var(--radius-sm);
@@ -1901,17 +1928,13 @@ select#historyExercisePicker:focus {
 .pain-banner strong { color: var(--danger); display: block; margin-bottom: 6px; }
 .pain-banner-actions { display: flex; gap: 8px; margin-top: 10px; }
 
-/* ---- exercise secondary actions: a small kebab in the corner instead of
-   inline "Swap Exercise" / "Flag Pain" buttons competing with the primary
-   set-logging action for attention ---- */
-.exercise-actions-row {
-  display: flex;
-  justify-content: flex-end;
-  margin: -4px 0 4px;
-}
+/* ---- exercise secondary actions: a small kebab beside its own exercise's
+   name instead of inline "Swap Exercise" / "Flag Pain" buttons competing
+   with the primary set-logging action for attention ---- */
 .exercise-kebab-btn {
   width: 30px;
   height: 30px;
+  flex-shrink: 0;
   border-radius: 50%;
   background: none;
   border: none;

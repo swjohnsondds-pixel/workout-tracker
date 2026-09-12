@@ -84,6 +84,32 @@ function nextWorkoutPreviewHTML(next, weekNumber, isDeload) {
   `;
 }
 
+// Exercises/sets/rep-ranges for ANY day template, independent of week or
+// progression — unlike nextWorkoutPreviewHTML (which shows the *next*
+// day's actual prescribed weight for the upcoming week), this works for
+// any day card on the board, past or future, without needing a specific
+// week's progression numbers. Purely reads the static template — starts
+// no session, touches no logged data.
+function dayTemplatePreviewHTML(dayTemplateId) {
+  const template = State.getDayTemplates().find((t) => t.id === dayTemplateId);
+  const rows = [];
+  template.supersets.forEach((ss) => {
+    ss.exercises.forEach((slot) => {
+      const def = EXERCISES[slot.exerciseId];
+      rows.push(`<div class="session-recap-row"><span>${def.name}</span><span class="subtle">${slot.sets} × ${slot.repMin}-${slot.repMax}</span></div>`);
+    });
+  });
+  return rows.join("");
+}
+
+function openDayPreviewModal(dayTemplateId) {
+  openModal(`
+    <h2>${dayLabel(dayTemplateId)}</h2>
+    <p class="subtle" style="margin-bottom:14px;">Exercises and prescribed sets/reps for this day — this doesn't start the session.</p>
+    <div class="card" style="padding-top:6px;padding-bottom:2px;">${dayTemplatePreviewHTML(dayTemplateId)}</div>
+  `);
+}
+
 // ---- quick-stat row + weekly training-load chart (presentation-only
 // derivations from existing state — no new persisted fields) ----
 
@@ -227,6 +253,7 @@ function dayPlanCardHTML(day, next) {
           <span class="chip-pill">${icon("target", { size: 12 })} RIR ${stats.avgRIR}</span>
         </div>
         ${showBar ? `<div class="progress-bar-track small"><div class="progress-bar-fill" style="width:${pct}%"></div></div>` : ""}
+        <button type="button" class="day-plan-preview-btn" data-preview-day="${day.dayTemplateId}">Preview Exercises</button>
       </div>
       ${badgeHTML}
     </div>
@@ -360,6 +387,10 @@ export function render(container, { navigate }) {
     const wasHidden = previewPanel.hidden;
     previewPanel.hidden = !wasHidden;
     previewToggle.textContent = wasHidden ? "Preview Exercises ▴" : "Preview Exercises ▾";
+  });
+
+  container.querySelectorAll("[data-preview-day]").forEach((btn) => {
+    btn.addEventListener("click", () => openDayPreviewModal(btn.dataset.previewDay));
   });
 
   maybeShowBackupReminder(container, navigate);
